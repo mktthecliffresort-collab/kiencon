@@ -255,14 +255,27 @@ export const supabaseService = {
     if (!client) return localProfile;
 
     try {
-      // Tìm người dùng theo current_grade trong bảng users mới
-      const { data, error } = await client
-        .from('users')
-        .select('*')
-        .eq('current_grade', grade)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Kiểm tra xem có phiên đăng nhập của người dùng không
+      let authUserId: string | null = null;
+      try {
+        const rawSession = localStorage.getItem('kienhoc_auth_session_v2');
+        if (rawSession) {
+          const sess = JSON.parse(rawSession);
+          authUserId = sess.id;
+        }
+      } catch {
+        // ignore
+      }
+
+      // Tìm người dùng: theo authUserId nếu đã đăng nhập, hoặc fallback theo current_grade
+      let query = client.from('users').select('*');
+      if (authUserId) {
+        query = query.or(`id.eq.${authUserId},auth_id.eq.${authUserId}`).limit(1);
+      } else {
+        query = query.eq('current_grade', grade).order('updated_at', { ascending: false }).limit(1);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error || !data) {
         // Chưa có -> đồng bộ từ local lên Supabase
@@ -332,14 +345,14 @@ export const supabaseService = {
     if (!client) return;
 
     try {
-      // Upsert vào bảng users mới
-      const { data: existingUser } = await client
-        .from('users')
-        .select('id')
-        .eq('current_grade', profile.grade)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Tìm xem đã có bản ghi theo profile.id hoặc current_grade
+      let query = client.from('users').select('id');
+      if (profile.id && !profile.id.startsWith('user_')) {
+        query = query.or(`id.eq.${profile.id},auth_id.eq.${profile.id}`).limit(1);
+      } else {
+        query = query.eq('current_grade', profile.grade).order('updated_at', { ascending: false }).limit(1);
+      }
+      const { data: existingUser } = await query.maybeSingle();
 
       const payload = {
         full_name: profile.name,

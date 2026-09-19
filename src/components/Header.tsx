@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, GradeLevel } from '../types';
-import { Flame, Award, Sparkles, Volume2, VolumeX, CheckCircle2, Trophy, Calendar, Zap, X, Settings, Database, BookOpen, Heart } from 'lucide-react';
+import { Flame, Award, Sparkles, Volume2, VolumeX, CheckCircle2, Trophy, Calendar, Zap, X, Settings, Database, BookOpen, Heart, LogOut, LogIn, UserPlus } from 'lucide-react';
 import { audioService } from '../services/audioService';
 import { supabaseService } from '../services/supabaseService';
 
@@ -12,6 +12,8 @@ interface HeaderProps {
   onOpenMastery: () => void;
   onOpenLeaderboard: () => void;
   onOpenProfile: () => void;
+  onOpenAuth?: (mode?: 'signin' | 'signup' | 'signout_confirm') => void;
+  isAuthenticated?: boolean;
   unclaimedQuestsCount: number;
   isStreakTriggered?: boolean;
 }
@@ -24,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMastery,
   onOpenLeaderboard,
   onOpenProfile,
+  onOpenAuth,
+  isAuthenticated = false,
   unclaimedQuestsCount,
   isStreakTriggered,
 }) => {
@@ -428,6 +432,35 @@ export const Header: React.FC<HeaderProps> = ({
                 <Settings className="w-4 h-4 text-amber-600 animate-spin-slow hover:text-amber-800 shrink-0" />
               </div>
             </button>
+
+            {/* Auth / Account Buttons (Sign In / Sign Up / Sign Out) */}
+            {isAuthenticated ? (
+              <button
+                id="desktop-header-signout"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  if (onOpenAuth) onOpenAuth('signout_confirm');
+                }}
+                className="p-2 lg:p-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 hover:text-rose-900 active:scale-95 transition-all shrink-0"
+                title="Thoát tài khoản (Đăng xuất)"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                id="desktop-header-auth-cta"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  if (onOpenAuth) onOpenAuth('signup');
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl btn-ant-3d-amber text-amber-950 font-black text-xs hover:brightness-105 active:scale-95 transition-all shadow-xs shrink-0"
+                title="Tạo tài khoản nhận ngay +250 XP ban đầu"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span className="hidden xl:inline">Tạo tài khoản</span>
+                <span className="bg-amber-500/20 text-amber-900 px-1.5 py-0.5 rounded-md font-black text-[10px]">+250 XP</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -530,13 +563,40 @@ export const Header: React.FC<HeaderProps> = ({
                   audioService.playBoingPop();
                   onOpenProfile();
                 }}
-                className="p-1.5 px-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black text-xs flex items-center gap-1.5 active:scale-90 transition-all"
+                className="p-1.5 px-2 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black text-xs flex items-center gap-1 active:scale-90 transition-all"
                 title="Quản lý hồ sơ & cài đặt"
               >
                 <span className="text-base leading-none">{user.avatar || '🐜'}</span>
-                <span className="max-w-[70px] truncate font-black text-xs text-amber-950">{user.name || user.nickname || 'Bạn'}</span>
                 <Settings className="w-3.5 h-3.5 text-amber-700 shrink-0" />
               </button>
+
+              {/* Mobile Auth Button */}
+              {isAuthenticated ? (
+                <button
+                  id="mobile-header-signout"
+                  onClick={() => {
+                    audioService.playBoingPop();
+                    if (onOpenAuth) onOpenAuth('signout_confirm');
+                  }}
+                  className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 active:scale-90 transition-all"
+                  title="Thoát tài khoản"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  id="mobile-header-auth-cta"
+                  onClick={() => {
+                    audioService.playBoingPop();
+                    if (onOpenAuth) onOpenAuth('signup');
+                  }}
+                  className="px-2 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 font-black text-[11px] flex items-center gap-1 active:scale-95 shadow-2xs shrink-0"
+                  title="Tạo tài khoản nhận ngay +250 XP ban đầu"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>+250XP</span>
+                </button>
+              )}
             </div>
           </div>
 

@@ -13,6 +13,8 @@ import { AllyShowcaseModal } from './components/AllyShowcaseModal';
 import { MasteryDashboardModal } from './components/MasteryDashboardModal';
 import { LeaderboardModal } from './components/LeaderboardModal';
 import { ProfileSettingsModal } from './components/ProfileSettingsModal';
+import { AuthModal } from './components/AuthModal';
+import { authService } from './services/authService';
 import { Grade5MathReviewHub } from './components/Grade5MathReview/Grade5MathReviewHub';
 import { DragScrollContainer } from './components/DragScrollContainer';
 import { fireButtonParticleBurst } from './utils/confettiHelper';
@@ -37,6 +39,37 @@ export default function App() {
   const [masteryModalOpen, setMasteryModalOpen] = useState<boolean>(false);
   const [leaderboardModalOpen, setLeaderboardModalOpen] = useState<boolean>(false);
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
+
+  // Account Authentication Modal
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'signout_confirm'>('signup');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isAuthenticated());
+
+  // Listen to session changes
+  useEffect(() => {
+    const unsubscribe = authService.subscribe((session) => {
+      setIsAuthenticated(!!session);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleOpenAuth = (mode: 'signin' | 'signup' | 'signout_confirm' = 'signup') => {
+    setAuthModalMode(mode);
+    setAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (authUser: UserProfile) => {
+    setUser(authUser);
+    setIsAuthenticated(true);
+    if (authUser.grade && authUser.grade !== currentGrade) {
+      setCurrentGrade(authUser.grade);
+    }
+  };
+
+  const handleSignOutSuccess = (defaultUser: UserProfile) => {
+    setUser(defaultUser);
+    setIsAuthenticated(false);
+  };
 
   // Streak & Mastery celebration triggers
   const [isStreakTriggered, setIsStreakTriggered] = useState<boolean>(false);
@@ -247,6 +280,8 @@ export default function App() {
         onOpenMastery={() => setMasteryModalOpen(true)}
         onOpenLeaderboard={() => setLeaderboardModalOpen(true)}
         onOpenProfile={() => setProfileModalOpen(true)}
+        onOpenAuth={handleOpenAuth}
+        isAuthenticated={isAuthenticated}
         unclaimedQuestsCount={unclaimedQuestsCount}
         isStreakTriggered={isStreakTriggered}
       />
@@ -720,6 +755,20 @@ export default function App() {
         onClose={() => setProfileModalOpen(false)}
         user={user}
         onSaveProfile={handleSaveProfile}
+        onOpenAuth={handleOpenAuth}
+        isAuthenticated={isAuthenticated}
+      />
+
+      {/* Account Authentication & Email Verification Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        initialMode={authModalMode}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        onSignOutSuccess={handleSignOutSuccess}
+        currentUser={user}
+        currentGrade={currentGrade}
+        onSwitchGrade={handleSwitchGrade}
       />
     </div>
   );

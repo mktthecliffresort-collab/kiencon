@@ -21,6 +21,9 @@ import {
   CheckCircle2,
   AlertCircle,
   FileCode,
+  LogOut,
+  LogIn,
+  UserPlus,
 } from 'lucide-react';
 import { audioService } from '../services/audioService';
 import { supabaseService } from '../services/supabaseService';
@@ -30,6 +33,8 @@ interface ProfileSettingsModalProps {
   onClose: () => void;
   user: UserProfile;
   onSaveProfile: (updatedProfile: UserProfile) => void;
+  onOpenAuth?: (mode?: 'signin' | 'signup' | 'signout_confirm') => void;
+  isAuthenticated?: boolean;
 }
 
 const AVATAR_OPTIONS = [
@@ -56,6 +61,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   onClose,
   user,
   onSaveProfile,
+  onOpenAuth,
+  isAuthenticated = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'settings' | 'database'>('profile');
 
@@ -430,6 +437,87 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 <div>
                   <div className="text-base font-black text-orange-600">🔥 {user.streakDays} ngày</div>
                   <div className="text-[11px] font-bold text-stone-500">Chuỗi học</div>
+                </div>
+              </div>
+
+              {/* Account Authentication & Logout Block */}
+              <div className="p-4 rounded-2xl border-2 border-amber-200 bg-amber-50/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-200 text-amber-900 flex items-center justify-center text-sm font-black shadow-xs">
+                      {isAuthenticated ? '🛡️' : '👤'}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-stone-900">
+                        {isAuthenticated ? 'Tài Khoản Đã Kết Nối CSDL' : 'Tài Khoản Khách (Chưa Liên Kết)'}
+                      </h4>
+                      <p className="text-[11px] text-stone-600">
+                        {isAuthenticated
+                          ? user.email || 'Đã đồng bộ bảo mật với Supabase'
+                          : 'Đăng ký tài khoản để bảo toàn tiến độ & nhận ngay +250 XP ban đầu!'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {isAuthenticated ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audioService.playClick();
+                          onClose();
+                          if (onOpenAuth) onOpenAuth('signout_confirm');
+                        }}
+                        className="px-3 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 border border-rose-300 text-rose-800 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Thoát tài khoản</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audioService.playClick();
+                          onClose();
+                          if (onOpenAuth) onOpenAuth('signin');
+                        }}
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>Chuyển tài khoản</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audioService.playClick();
+                          onClose();
+                          if (onOpenAuth) onOpenAuth('signup');
+                        }}
+                        className="px-3.5 py-2 rounded-xl btn-ant-3d-amber text-amber-950 text-xs font-black flex items-center gap-1.5 shadow-sm"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Tạo Tài Khoản (+250 XP)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audioService.playClick();
+                          onClose();
+                          if (onOpenAuth) onOpenAuth('signin');
+                        }}
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>Đăng nhập</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
