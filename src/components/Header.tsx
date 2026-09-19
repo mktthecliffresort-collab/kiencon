@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, GradeLevel } from '../types';
-import { Flame, Award, Sparkles, Volume2, VolumeX, CheckCircle2, Trophy, Calendar, Zap, X, Settings, Database } from 'lucide-react';
+import { Flame, Award, Sparkles, Volume2, VolumeX, CheckCircle2, Trophy, Calendar, Zap, X, Settings, Database, BookOpen, Heart } from 'lucide-react';
 import { audioService } from '../services/audioService';
 import { supabaseService } from '../services/supabaseService';
 
@@ -30,7 +30,9 @@ export const Header: React.FC<HeaderProps> = ({
   const [isMuted, setIsMuted] = React.useState(audioService.getMuted());
   const [isFireActive, setIsFireActive] = useState<boolean>(false);
   const [showStreakPopover, setShowStreakPopover] = useState<boolean>(false);
+  const [showLeavesPopover, setShowLeavesPopover] = useState<boolean>(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const leavesPopoverRef = useRef<HTMLDivElement>(null);
 
   // Trigger fire animation when isStreakTriggered flips or changes
   useEffect(() => {
@@ -39,20 +41,23 @@ export const Header: React.FC<HeaderProps> = ({
     }
   }, [isStreakTriggered]);
 
-  // Click outside to close streak popover
+  // Click outside to close streak & leaves popover
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
         setShowStreakPopover(false);
       }
+      if (leavesPopoverRef.current && !leavesPopoverRef.current.contains(event.target as Node)) {
+        setShowLeavesPopover(false);
+      }
     }
-    if (showStreakPopover) {
+    if (showStreakPopover || showLeavesPopover) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showStreakPopover]);
+  }, [showStreakPopover, showLeavesPopover]);
 
   const triggerFireAnimation = () => {
     setIsFireActive(true);
@@ -136,7 +141,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'text-stone-500 hover:text-stone-800 hover:bg-white/60'
               }`}
             >
-              <span className="text-base lg:text-lg">👦</span>
+              <BookOpen className="w-4 h-4 text-amber-900" />
               <span>Lớp 5</span>
             </button>
 
@@ -152,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'text-stone-500 hover:text-stone-800 hover:bg-white/60'
               }`}
             >
-              <span className="text-base lg:text-lg">🧑‍🎓</span>
+              <BookOpen className="w-4 h-4 text-sky-900" />
               <span>Lớp 8</span>
             </button>
           </div>
@@ -304,6 +309,71 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">⭐</span>
             </button>
 
+            {/* 5 Energy Leaves (Lá Sinh Mệnh) - Duolingo Inspired Health / Energy */}
+            <div className="relative" ref={leavesPopoverRef}>
+              <button
+                id="desktop-header-energy-leaves"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  setShowLeavesPopover(!showLeavesPopover);
+                }}
+                className="flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-2xl bg-gradient-to-b from-emerald-100 to-teal-100 border-2 border-emerald-300 text-emerald-950 font-black text-xs lg:text-sm hover:brightness-105 active:scale-95 transition-all shrink-0"
+                title="5 Lá Sinh Mệnh - Năng lượng đào tổ và khám phá bài học"
+              >
+                <span className="text-base lg:text-lg animate-leaf-flutter inline-block">🍃</span>
+                <span className="text-emerald-900 font-black">5/5</span>
+              </button>
+
+              {/* Leaves Explanatory Popover */}
+              {showLeavesPopover && (
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-3xl p-5 border-3 border-emerald-300 shadow-2xl z-50 animate-fadeIn space-y-3 text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shadow-inner">
+                        🍃
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-stone-900">
+                          Lá Sinh Mệnh
+                        </h4>
+                        <p className="text-[11px] text-stone-500 font-bold">Năng lượng Vương quốc</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowLeavesPopover(false)}
+                      className="text-stone-400 hover:text-stone-600 p-1 rounded-lg hover:bg-stone-100"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="bg-emerald-50 rounded-2xl p-3.5 border border-emerald-200 text-center space-y-1.5">
+                    <div className="flex items-center justify-center gap-1.5 text-xl">
+                      <span>🍃</span>
+                      <span>🍃</span>
+                      <span>🍃</span>
+                      <span>🍃</span>
+                      <span>🍃</span>
+                    </div>
+                    <div className="text-xs font-black text-emerald-950">5/5 Lá Sinh Mệnh Trọn Vẹn!</div>
+                    <p className="text-[11px] text-stone-600 font-semibold leading-relaxed">
+                      Lá sinh mệnh đồng hành giúp bạn kiên trì thử thách. Mỗi bài học hoàn thành sẽ giúp khu vườn tri thức mãi xanh tươi!
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      audioService.playSuccess();
+                      setShowLeavesPopover(false);
+                    }}
+                    className="w-full py-2.5 rounded-xl font-black text-xs btn-ant-3d-green text-white shadow-xs"
+                  >
+                    ĐÃ HIỂU RỒI 🐜
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Daily Quests Button */}
             <button
               id="desktop-header-quests"
@@ -389,8 +459,21 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </button>
 
-            {/* Right: Streak + Quests + Sound */}
+            {/* Right: Leaves + Streak + Quests + Sound */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* Mobile Energy Leaves */}
+              <button
+                onClick={() => {
+                  audioService.playBoingPop();
+                  setShowLeavesPopover(!showLeavesPopover);
+                }}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-xl border border-emerald-300 bg-emerald-100 text-emerald-950 font-black text-xs active:scale-95"
+                title="Lá Sinh Mệnh"
+              >
+                <span className="text-sm animate-leaf-flutter">🍃</span>
+                <span className="text-[11px] font-black">5</span>
+              </button>
+
               {/* Mobile Streak Button */}
               <button
                 onClick={handleStreakClick}

@@ -645,6 +645,14 @@ export default function App() {
             selectedDomain={selectedDomain}
             user={user}
             onStartLesson={handleStartLesson}
+            onOpenRiddles={() => {
+              setGrade5MathView('exam_hub');
+              setMathHubTab('riddles');
+            }}
+            onOpenArena={() => {
+              setGrade5MathView('exam_hub');
+              setMathHubTab('arena');
+            }}
           />
         )}
       </main>

@@ -30,6 +30,7 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
   onLessonComplete,
 }) => {
   const [currentStage, setCurrentStage] = useState<number>(1); // 1: Discover, 2: Practice, 3: Apply, 4: Teach-Back
+  const [leaves, setLeaves] = useState<number>(5);
   const [hintModalOpen, setHintModalOpen] = useState<boolean>(false);
   const [hintStage, setHintStage] = useState<number>(1);
   const [hintText, setHintText] = useState<string>('');
@@ -129,42 +130,59 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
           <span className="sm:hidden">Thoát</span>
         </button>
 
-        {/* 4-Stage Step Stepper */}
-        <div className="flex items-center gap-1 sm:gap-3">
-          {stagesList.map((step) => {
-            const isDone = currentStage > step.num;
-            const isCurrent = currentStage === step.num;
+        {/* 4-Stage Step Stepper & Duolingo Progress Capsule */}
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1 sm:gap-2">
+            {stagesList.map((step) => {
+              const isDone = currentStage > step.num;
+              const isCurrent = currentStage === step.num;
 
-            return (
-              <div key={step.num} className="flex items-center gap-1 sm:gap-2">
-                <div
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center font-bold text-xs sm:text-sm transition-all ${
-                    isCurrent
-                      ? lesson.grade === 5
-                        ? 'bg-amber-500 text-white shadow-sm'
-                        : 'bg-blue-600 text-white shadow-sm'
-                      : isDone
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-stone-200 text-stone-600'
-                  }`}
-                >
-                  {isDone ? <CheckCircle2 className="w-4 h-4" /> : step.num}
+              return (
+                <div key={step.num} className="flex items-center gap-1">
+                  <div
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm transition-all ${
+                      isCurrent
+                        ? 'bg-amber-500 text-white shadow-md border-b-2 border-amber-700'
+                        : isDone
+                        ? 'bg-emerald-500 text-white shadow-xs'
+                        : 'bg-stone-200 text-stone-500'
+                    }`}
+                  >
+                    {isDone ? <CheckCircle2 className="w-4 h-4 stroke-[3]" /> : step.num}
+                  </div>
+                  <span
+                    className={`text-xs hidden md:inline font-bold ${
+                      isCurrent ? 'text-stone-900' : 'text-stone-400'
+                    }`}
+                  >
+                    {step.title}
+                  </span>
+                  {step.num < 4 && <span className="text-stone-300 text-xs hidden sm:inline">→</span>}
                 </div>
-                <span
-                  className={`text-xs hidden md:inline font-bold ${
-                    isCurrent ? 'text-stone-900' : 'text-stone-400'
-                  }`}
-                >
-                  {step.title}
-                </span>
-                {step.num < 4 && <span className="text-stone-300 text-xs hidden sm:inline">→</span>}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          {/* Progress Pill Bar */}
+          <div className="hidden sm:block w-20 md:w-28 bg-stone-200 h-2.5 rounded-full overflow-hidden p-0.5 border border-stone-300/60">
+            <div
+              className="bg-gradient-to-r from-amber-400 to-emerald-500 h-full rounded-full transition-all duration-500"
+              style={{ width: `${(currentStage / 4) * 100}%` }}
+            />
+          </div>
         </div>
 
-        {/* Right side controls: Tutor toggle & Ally badge */}
+        {/* Right side controls: 5 Leaves + Tutor toggle + Ally badge */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* 5 Energy Leaves (🍃 Lá Sinh Mệnh) */}
+          <div 
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-black text-xs shadow-2xs select-none"
+            title="5 Lá Sinh Mệnh Vương Quốc - Giúp bạn kiên trì thử thách"
+          >
+            <span className="text-sm animate-leaf-flutter inline-block">🍃</span>
+            <span>{leaves}/5</span>
+          </div>
+
           <button
             id="header-toggle-socratic-tutor"
             onClick={() => {
@@ -189,7 +207,7 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
           {/* Ally badge */}
           <div className="flex items-center gap-2">
             <div
-              className={`w-8 h-8 rounded-xl ${ally.avatarColor} text-white flex items-center justify-center text-sm`}
+              className={`w-8 h-8 rounded-xl ${ally.avatarColor} text-white flex items-center justify-center text-sm shadow-2xs`}
             >
               {ally.icon}
             </div>

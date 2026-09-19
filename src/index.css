@@ -409,5 +409,101 @@ html, body {
   animation: mobile-slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* =========================================================
+   Ant Kingdom (Kiến Học) 3D Tactile Buttons & Path Animations
+   ========================================================= */
+
+/* Amber / Honey 3D Button */
+.btn-ant-3d-amber {
+  background-color: #F59E0B;
+  box-shadow: 0 5px 0 0 #B45309;
+  border-radius: 1rem;
+  transition: all 0.08s ease-in-out;
+  user-select: none;
+}
+.btn-ant-3d-amber:hover {
+  filter: brightness(1.05);
+}
+.btn-ant-3d-amber:active {
+  transform: translateY(5px);
+  box-shadow: 0 0 0 0 #B45309;
+}
+
+/* Leaf Green / Emerald 3D Button */
+.btn-ant-3d-green {
+  background-color: #10B981;
+  box-shadow: 0 5px 0 0 #047857;
+  border-radius: 1rem;
+  transition: all 0.08s ease-in-out;
+  user-select: none;
+}
+.btn-ant-3d-green:hover {
+  filter: brightness(1.05);
+}
+.btn-ant-3d-green:active {
+  transform: translateY(5px);
+  box-shadow: 0 0 0 0 #047857;
+}
+
+/* Slate Stone / Locked 3D Button */
+.btn-ant-3d-slate {
+  background-color: #CBD5E1;
+  box-shadow: 0 5px 0 0 #94A3B8;
+  border-radius: 1rem;
+  transition: all 0.08s ease-in-out;
+  user-select: none;
+}
+
+/* Active Node Ring Pulse */
+@keyframes ant-node-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6), 0 5px 0 0 #047857;
+  }
+  70% {
+    box-shadow: 0 0 0 16px rgba(16, 185, 129, 0), 0 5px 0 0 #047857;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), 0 5px 0 0 #047857;
+  }
+}
+
+.animate-ant-node-pulse {
+  animation: ant-node-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Floating Bouncy Speech Bubble */
+@keyframes bubble-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-bubble-float {
+  animation: bubble-float 1.8s ease-in-out infinite;
+}
+
+/* Fluttering Energy Leaf */
+@keyframes leaf-flutter {
+  0%, 100% {
+    transform: rotate(-4deg) scale(1);
+  }
+  50% {
+    transform: rotate(4deg) scale(1.06);
+  }
+}
+
+.animate-leaf-flutter {
+  animation: leaf-flutter 2s ease-in-out infinite;
+}
+
+/* Wooden Plaque Hanging String Effect */
+.wood-plaque-shadow {
+  box-shadow: 0 8px 0 #78350F, 0 15px 25px -5px rgba(120, 53, 15, 0.35);
+}
+
+
 
 

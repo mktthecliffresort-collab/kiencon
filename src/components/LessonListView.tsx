@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Lesson, Subject, UserProfile, KHTNDomain } from '../types';
 import { ALLIES } from '../data/mockData';
-import { Clock, Award, Play, CheckCircle, Sparkles, BookOpen } from 'lucide-react';
+import { Clock, Award, Play, CheckCircle, Sparkles, BookOpen, Compass, List } from 'lucide-react';
 import { audioService } from '../services/audioService';
 import { DragScrollContainer } from './DragScrollContainer';
+import { AntLearningPath } from './AntLearningPath';
 
 interface LessonListViewProps {
   lessons: Lesson[];
@@ -11,6 +12,8 @@ interface LessonListViewProps {
   selectedDomain?: KHTNDomain;
   user: UserProfile;
   onStartLesson: (lesson: Lesson) => void;
+  onOpenRiddles?: () => void;
+  onOpenArena?: () => void;
 }
 
 export const LessonListView: React.FC<LessonListViewProps> = ({
@@ -19,8 +22,11 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
   selectedDomain,
   user,
   onStartLesson,
+  onOpenRiddles,
+  onOpenArena,
 }) => {
-  const [selectedThemeFilter, setSelectedThemeFilter] = React.useState<string>('all');
+  const [viewMode, setViewMode] = useState<'path' | 'list'>('path');
+  const [selectedThemeFilter, setSelectedThemeFilter] = useState<string>('all');
 
   // Filter lessons by domain if KHTN Grade 8, and by theme if selected
   const filteredLessons = lessons.filter((lesson) => {
@@ -47,6 +53,22 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
     return null;
   }
 
+  // If path mode is active, render Sinuous Ant Path component
+  if (viewMode === 'path') {
+    return (
+      <AntLearningPath
+        lessons={lessons}
+        subject={subject}
+        selectedDomain={selectedDomain}
+        user={user}
+        onStartLesson={onStartLesson}
+        onOpenRiddles={onOpenRiddles}
+        onOpenArena={onOpenArena}
+        onSwitchViewToList={() => setViewMode('list')}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Subject Header Banner */}
@@ -59,6 +81,16 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
             <span className="text-xs font-semibold text-stone-500">
               Chương trình Lớp {subject.grade}
             </span>
+            <button
+              onClick={() => {
+                audioService.playBoingPop();
+                setViewMode('path');
+              }}
+              className="flex items-center gap-1 text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-300 hover:bg-emerald-100 transition-all"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Bản đồ hành trình 🐜</span>
+            </button>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-stone-900">{subject.name}</h2>
           <p className="text-sm text-stone-600 max-w-2xl">{subject.description}</p>
@@ -77,6 +109,7 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
           </div>
         </div>
       </div>
+
 
       {/* Lesson List */}
       <div>
