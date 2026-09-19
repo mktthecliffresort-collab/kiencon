@@ -1,4 +1,4 @@
-import { curriculumRepository } from '../repositories/InMemoryCurriculumRepository';
+import { curriculumRepository } from '../repositories';
 import { Subject, Lesson, GradeLevel } from '../types';
 
 export const curriculumService = {

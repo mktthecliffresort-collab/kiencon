@@ -1,4 +1,4 @@
-import { userRepository } from '../repositories/InMemoryUserRepository';
+import { userRepository } from '../repositories';
 import { UserProfile, GradeLevel } from '../types';
 
 export const userService = {

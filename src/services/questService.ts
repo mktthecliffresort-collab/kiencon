@@ -1,4 +1,4 @@
-import { questRepository } from '../repositories/InMemoryQuestRepository';
+import { questRepository } from '../repositories';
 import { DailyQuest, GradeLevel } from '../types';
 
 export const questService = {

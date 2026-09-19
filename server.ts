@@ -1,10 +1,9 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import dotenv from "dotenv";
 import { Agent, setGlobalDispatcher } from "undici";
-import { getSocraticTutorGuidance } from "./server/services/geminiTutor.ts";
+import { getSocraticTutorGuidance } from "./server/services/geminiTutor";
 
 dotenv.config();
 
@@ -18,9 +17,6 @@ setGlobalDispatcher(
     keepAliveMaxTimeout: 20000,
   })
 );
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;

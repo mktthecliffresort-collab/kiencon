@@ -181,103 +181,198 @@ export const Grade5MathReviewHub: React.FC<Grade5MathReviewHubProps> = ({
         </div>
       </div>
 
-      {/* Main Feature Tabs Navigation - Draggable & Swipeable in pedagogical sequence */}
-      <DragScrollContainer
-        id="math-hub-main-tabs"
-        fadeColorClass="from-stone-50"
-        className="pb-1"
-      >
-        <div className="flex items-center gap-2 pb-1 px-1">
-          {/* 0. Học theo bài (như sách giáo khoa) */}
-          {onBackToRoadmap && (
+      {/* Main Feature Tabs Navigation */}
+      {/* Mobile View (< sm): DragScrollContainer */}
+      <div className="block sm:hidden">
+        <DragScrollContainer
+          id="math-hub-main-tabs"
+          fadeColorClass="from-stone-50"
+          className="pb-1"
+        >
+          <div className="flex items-center gap-2 pb-1 px-1">
+            {/* 0. Học theo bài (như sách giáo khoa) */}
+            {onBackToRoadmap && (
+              <button
+                id="tab-back-roadmap-btn-mobile"
+                onClick={() => {
+                  audioService.playClick();
+                  onBackToRoadmap();
+                }}
+                className="px-4 py-3 rounded-2xl font-black text-xs flex items-center gap-2 whitespace-nowrap bg-gradient-to-r from-amber-100 via-orange-100 to-amber-100 text-amber-950 border-2 border-amber-300 hover:brightness-105 active:scale-95 transition-all shadow-xs"
+                title="Quay lại danh sách bài học theo tuần của sách giáo khoa"
+              >
+                <span className="text-base">🚀</span>
+                <span>Khởi động</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-extrabold">Theo bài 📖</span>
+              </button>
+            )}
+
+            {/* 1. Đấu trường 60s */}
             <button
-              id="tab-back-roadmap-btn"
+              id="tab-arena-btn-mobile"
               onClick={() => {
                 audioService.playClick();
-                onBackToRoadmap();
+                setActiveTab('arena');
               }}
-              className="px-4 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap bg-gradient-to-r from-amber-100 via-orange-100 to-amber-100 text-amber-950 border-2 border-amber-300 hover:brightness-105 active:scale-95 transition-all shadow-xs"
-              title="Quay lại danh sách bài học theo tuần của sách giáo khoa"
+              className={`px-5 py-3 rounded-2xl font-black text-xs flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 ${
+                activeTab === 'arena'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md border-b-3 border-orange-700 scale-102'
+                  : 'bg-white hover:bg-orange-50/50 text-stone-700 border-2 border-orange-200/80'
+              }`}
             >
-              <span className="text-base">🚀</span>
-              <span>Khởi động</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-extrabold">Theo bài 📖</span>
+              <Flame className={`w-4 h-4 ${activeTab === 'arena' ? 'text-yellow-200 fill-yellow-300' : 'text-orange-500 fill-orange-400'}`} />
+              <span>Đấu trường 60s</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'arena' ? 'bg-white/20' : 'bg-orange-100 text-orange-800'}`}>Tốc độ ⚡</span>
             </button>
-          )}
 
-          {/* 1. Đấu trường 60s */}
+            {/* 2. Kiến kể chuyện */}
+            <button
+              id="tab-stories-btn-mobile"
+              onClick={() => {
+                audioService.playClick();
+                setActiveTab('stories');
+              }}
+              className={`px-5 py-3 rounded-2xl font-black text-xs flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 ${
+                activeTab === 'stories'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-amber-950 shadow-md border-b-3 border-amber-700 scale-102'
+                  : 'bg-white hover:bg-amber-50/50 text-stone-700 border-2 border-amber-200/80'
+              }`}
+            >
+              <span className="text-base">🐜</span>
+              <span>Kiến kể chuyện</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'stories' ? 'bg-white/30 text-amber-950' : 'bg-amber-100 text-amber-800'}`}>Ghi nhớ 💡</span>
+            </button>
+
+            {/* 3. Kiến đố vui */}
+            <button
+              id="tab-riddles-btn-mobile"
+              onClick={() => {
+                audioService.playClick();
+                setActiveTab('riddles');
+              }}
+              className={`px-5 py-3 rounded-2xl font-black text-xs flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 ${
+                activeTab === 'riddles'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md border-b-3 border-amber-700 scale-102'
+                  : 'bg-white hover:bg-yellow-50/50 text-stone-700 border-2 border-yellow-200/80'
+              }`}
+            >
+              <Star className={`w-4 h-4 ${activeTab === 'riddles' ? 'text-yellow-200 fill-yellow-200' : 'text-amber-500 fill-amber-400'}`} />
+              <span>Kiến đố vui</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'riddles' ? 'bg-white/20' : 'bg-yellow-100 text-amber-900'}`}>Sao tinh anh ⭐</span>
+            </button>
+
+            {/* 4. Kiến luyện võ */}
+            <button
+              id="tab-review-btn-mobile"
+              onClick={() => {
+                audioService.playClick();
+                setActiveTab('review');
+              }}
+              className={`px-5 py-3 rounded-2xl font-black text-xs flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 ${
+                activeTab === 'review'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md border-b-3 border-emerald-800 scale-102'
+                  : 'bg-white hover:bg-emerald-50/50 text-stone-700 border-2 border-emerald-200/80'
+              }`}
+            >
+              <Award className="w-4 h-4 text-emerald-500" />
+              <span>Kiến luyện võ</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'review' ? 'bg-white/20' : 'bg-emerald-100 text-emerald-800'}`}>Bí kíp 🥋</span>
+            </button>
+          </div>
+        </DragScrollContainer>
+      </div>
+
+      {/* Tablet & Desktop View (sm+): Balanced, non-scrolling responsive grid */}
+      <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-5 gap-2.5 w-full">
+        {/* 0. Học theo bài */}
+        {onBackToRoadmap && (
           <button
-            id="tab-arena-btn"
+            id="tab-back-roadmap-btn"
             onClick={() => {
               audioService.playClick();
-              setActiveTab('arena');
+              onBackToRoadmap();
             }}
-            className={`px-5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 ${
-              activeTab === 'arena'
-                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md border-b-3 border-orange-700 scale-102'
-                : 'bg-white hover:bg-orange-50/50 text-stone-700 border-2 border-orange-200/80'
-            }`}
+            className="w-full px-3.5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-amber-100 via-orange-100 to-amber-100 text-amber-950 border-2 border-amber-300 hover:brightness-105 active:scale-95 transition-all shadow-xs"
+            title="Quay lại danh sách bài học theo tuần của sách giáo khoa"
           >
-            <Flame className={`w-4 h-4 ${activeTab === 'arena' ? 'text-yellow-200 fill-yellow-300' : 'text-orange-500 fill-orange-400'}`} />
-            <span>Đấu trường 60s</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'arena' ? 'bg-white/20' : 'bg-orange-100 text-orange-800'}`}>Tốc độ ⚡</span>
+            <span className="text-base shrink-0">🚀</span>
+            <span className="whitespace-nowrap">Khởi động</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-extrabold whitespace-nowrap">Theo bài 📖</span>
           </button>
+        )}
 
-          {/* 2. Kiến kể chuyện */}
-          <button
-            id="tab-stories-btn"
-            onClick={() => {
-              audioService.playClick();
-              setActiveTab('stories');
-            }}
-            className={`px-5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 ${
-              activeTab === 'stories'
-                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-amber-950 shadow-md border-b-3 border-amber-700 scale-102'
-                : 'bg-white hover:bg-amber-50/50 text-stone-700 border-2 border-amber-200/80'
-            }`}
-          >
-            <span className="text-base">🐜</span>
-            <span>Kiến kể chuyện</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'stories' ? 'bg-white/30 text-amber-950' : 'bg-amber-100 text-amber-800'}`}>Ghi nhớ 💡</span>
-          </button>
+        {/* 1. Đấu trường 60s */}
+        <button
+          id="tab-arena-btn"
+          onClick={() => {
+            audioService.playClick();
+            setActiveTab('arena');
+          }}
+          className={`w-full px-3.5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+            activeTab === 'arena'
+              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md border-b-3 border-orange-700 scale-102'
+              : 'bg-white hover:bg-orange-50/50 text-stone-700 border-2 border-orange-200/80'
+          }`}
+        >
+          <Flame className={`w-4 h-4 shrink-0 ${activeTab === 'arena' ? 'text-yellow-200 fill-yellow-300' : 'text-orange-500 fill-orange-400'}`} />
+          <span className="whitespace-nowrap">Đấu trường 60s</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${activeTab === 'arena' ? 'bg-white/20' : 'bg-orange-100 text-orange-800'}`}>Tốc độ ⚡</span>
+        </button>
 
-          {/* 3. Kiến đố vui */}
-          <button
-            id="tab-riddles-btn"
-            onClick={() => {
-              audioService.playClick();
-              setActiveTab('riddles');
-            }}
-            className={`px-5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 ${
-              activeTab === 'riddles'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md border-b-3 border-amber-700 scale-102'
-                : 'bg-white hover:bg-yellow-50/50 text-stone-700 border-2 border-yellow-200/80'
-            }`}
-          >
-            <Star className={`w-4 h-4 ${activeTab === 'riddles' ? 'text-yellow-200 fill-yellow-200' : 'text-amber-500 fill-amber-400'}`} />
-            <span>Kiến đố vui</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'riddles' ? 'bg-white/20' : 'bg-yellow-100 text-amber-900'}`}>Sao tinh anh ⭐</span>
-          </button>
+        {/* 2. Kiến kể chuyện */}
+        <button
+          id="tab-stories-btn"
+          onClick={() => {
+            audioService.playClick();
+            setActiveTab('stories');
+          }}
+          className={`w-full px-3.5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+            activeTab === 'stories'
+              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-amber-950 shadow-md border-b-3 border-amber-700 scale-102'
+              : 'bg-white hover:bg-amber-50/50 text-stone-700 border-2 border-amber-200/80'
+          }`}
+        >
+          <span className="text-base shrink-0">🐜</span>
+          <span className="whitespace-nowrap">Kiến kể chuyện</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${activeTab === 'stories' ? 'bg-white/30 text-amber-950' : 'bg-amber-100 text-amber-800'}`}>Ghi nhớ 💡</span>
+        </button>
 
-          {/* 4. Kiến luyện võ */}
-          <button
-            id="tab-review-btn"
-            onClick={() => {
-              audioService.playClick();
-              setActiveTab('review');
-            }}
-            className={`px-5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 ${
-              activeTab === 'review'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md border-b-3 border-emerald-800 scale-102'
-                : 'bg-white hover:bg-emerald-50/50 text-stone-700 border-2 border-emerald-200/80'
-            }`}
-          >
-            <Award className="w-4 h-4 text-emerald-500" />
-            <span>Kiến luyện võ</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${activeTab === 'review' ? 'bg-white/20' : 'bg-emerald-100 text-emerald-800'}`}>Bí kíp 🥋</span>
-          </button>
-        </div>
-      </DragScrollContainer>
+        {/* 3. Kiến đố vui */}
+        <button
+          id="tab-riddles-btn"
+          onClick={() => {
+            audioService.playClick();
+            setActiveTab('riddles');
+          }}
+          className={`w-full px-3.5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+            activeTab === 'riddles'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md border-b-3 border-amber-700 scale-102'
+              : 'bg-white hover:bg-yellow-50/50 text-stone-700 border-2 border-yellow-200/80'
+          }`}
+        >
+          <Star className={`w-4 h-4 shrink-0 ${activeTab === 'riddles' ? 'text-yellow-200 fill-yellow-200' : 'text-amber-500 fill-amber-400'}`} />
+          <span className="whitespace-nowrap">Kiến đố vui</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${activeTab === 'riddles' ? 'bg-white/20' : 'bg-yellow-100 text-amber-900'}`}>Sao tinh anh ⭐</span>
+        </button>
+
+        {/* 4. Kiến luyện võ */}
+        <button
+          id="tab-review-btn"
+          onClick={() => {
+            audioService.playClick();
+            setActiveTab('review');
+          }}
+          className={`w-full px-3.5 py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+            activeTab === 'review'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md border-b-3 border-emerald-800 scale-102'
+              : 'bg-white hover:bg-emerald-50/50 text-stone-700 border-2 border-emerald-200/80'
+          }`}
+        >
+          <Award className="w-4 h-4 text-emerald-500 shrink-0" />
+          <span className="whitespace-nowrap">Kiến luyện võ</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${activeTab === 'review' ? 'bg-white/20' : 'bg-emerald-100 text-emerald-800'}`}>Bí kíp 🥋</span>
+        </button>
+      </div>
 
 
       {/* ========================================================= */}

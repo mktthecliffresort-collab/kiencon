@@ -255,38 +255,39 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* Ant Universe Greeting & Adaptive Tone Banner */}
         <div className="bg-gradient-to-r from-amber-400 via-orange-300 to-amber-200 rounded-3xl p-5 sm:p-7 border-4 border-amber-300 shadow-lg relative overflow-hidden text-stone-900">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-amber-950 bg-white/90 px-3 py-1 rounded-full shadow-xs border border-amber-300">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5 lg:gap-6 relative z-10">
+            <div className="space-y-2 flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="shrink-0 text-xs font-black uppercase tracking-wider text-amber-950 bg-white/95 px-3 py-1 rounded-full shadow-xs border border-amber-300">
                   {currentGrade === 5 ? '🎒 Kiến Con Lớp 5' : '🔬 Kiến Con Lớp 8'}
                 </span>
-                <span className="text-sm font-black text-amber-950">
+                <span className="shrink-0 text-sm font-black text-amber-950">
                   Chào {user.name || user.nickname || 'Bạn Kiến'}! 🌟
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-stone-950 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-stone-950 tracking-tight leading-tight">
                 {currentGrade === 5
                   ? 'Vương Quốc Kiến: Vui Học Mỗi Ngày! 🐜🎉'
                   : 'Phòng Thí Nghiệm & Tư Duy Khám Phá! 🧪⚡'}
               </h1>
-              <p className="text-sm sm:text-base font-bold text-amber-950/80 max-w-2xl leading-snug">
+              <p className="text-sm sm:text-base font-bold text-amber-950/85 max-w-3xl leading-snug">
                 {currentGrade === 5
                   ? 'Giải đố cùng Kiến Con, rinh thật nhiều XP và thăng hạng vinh quang!'
                   : 'Làm chủ hiện tượng khoa học, thực hành phản biện và bứt phá điểm số.'}
               </p>
             </div>
 
-            {/* Action buttons with drag-scroll on mobile */}
-            <div className="w-full md:w-auto">
+            {/* Action buttons: Mobile has drag-scroll; Tablet (sm to xl) has balanced 3-col grid; Desktop (xl+) has a clean flex row */}
+            {/* 1. Mobile View (< sm) */}
+            <div className="block sm:hidden w-full">
               <DragScrollContainer
-                id="hero-actions-scroll"
+                id="hero-actions-scroll-mobile"
                 fadeColorClass="from-amber-100/80"
-                className="w-full md:w-auto"
+                className="w-full"
               >
-                <div className="flex items-center gap-2.5 pb-1 px-1">
+                <div className="flex items-center gap-2 pb-1 px-1">
                   <button
-                    id="hero-btn-leaderboard"
+                    id="hero-btn-leaderboard-mobile"
                     onClick={(e) => {
                       audioService.playTinhTong();
                       fireButtonParticleBurst(e);
@@ -303,7 +304,7 @@ export default function App() {
                   </button>
 
                   <button
-                    id="hero-btn-allies"
+                    id="hero-btn-allies-mobile"
                     onClick={(e) => {
                       audioService.playTinhTong();
                       fireButtonParticleBurst(e);
@@ -320,7 +321,7 @@ export default function App() {
                   </button>
 
                   <button
-                    id="hero-btn-mastery"
+                    id="hero-btn-mastery-mobile"
                     onClick={(e) => {
                       audioService.playTinhTong();
                       fireButtonParticleBurst(e);
@@ -336,6 +337,60 @@ export default function App() {
                   </button>
                 </div>
               </DragScrollContainer>
+            </div>
+
+            {/* 2. Tablet & Desktop View (sm+): Balanced 3-col grid on tablet, sleek horizontal cluster on desktop */}
+            <div className="hidden sm:grid sm:grid-cols-3 xl:flex xl:items-center gap-2.5 lg:gap-3.5 w-full xl:w-auto shrink-0">
+              <button
+                id="hero-btn-leaderboard"
+                onClick={(e) => {
+                  audioService.playTinhTong();
+                  fireButtonParticleBurst(e);
+                  setLeaderboardModalOpen(true);
+                }}
+                className={`px-4 py-3 sm:py-3.5 rounded-2xl text-xs sm:text-sm lg:text-base font-black bg-white hover:bg-amber-50 text-amber-950 border-b-4 border-amber-500 shadow-md flex items-center justify-center gap-2 active:translate-y-1 active:border-b-0 transition-all whitespace-nowrap btn-hero-wiggle ${
+                  wiggleActive ? 'animate-btn-wiggle-active' : ''
+                }`}
+                style={{ animationDelay: '0s' }}
+                title="Bảng Xếp Hạng Học Sinh"
+              >
+                <Trophy className="w-5 h-5 text-amber-600 fill-amber-500 animate-wiggle shrink-0" />
+                <span>🏆 Đua Top Kiến</span>
+              </button>
+
+              <button
+                id="hero-btn-allies"
+                onClick={(e) => {
+                  audioService.playTinhTong();
+                  fireButtonParticleBurst(e);
+                  setAlliesModalOpen(true);
+                }}
+                className={`px-4 py-3 sm:py-3.5 rounded-2xl text-xs sm:text-sm lg:text-base font-black bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-b-4 border-emerald-700 shadow-md flex items-center justify-center gap-2 active:translate-y-1 active:border-b-0 transition-all hover:brightness-105 whitespace-nowrap btn-hero-wiggle ${
+                  wiggleActive ? 'animate-btn-wiggle-active' : ''
+                }`}
+                style={{ animationDelay: '0.3s' }}
+                title="Biệt Đội Kiến Đồng Hành"
+              >
+                <span className="text-lg shrink-0">🐜</span>
+                <span>Biệt Đội Kiến</span>
+              </button>
+
+              <button
+                id="hero-btn-mastery"
+                onClick={(e) => {
+                  audioService.playTinhTong();
+                  fireButtonParticleBurst(e);
+                  setMasteryModalOpen(true);
+                }}
+                className={`px-4 py-3 sm:py-3.5 rounded-2xl text-xs sm:text-sm lg:text-base font-black bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-b-4 border-purple-800 shadow-md flex items-center justify-center gap-2 active:translate-y-1 active:border-b-0 transition-all hover:brightness-105 whitespace-nowrap btn-hero-wiggle ${
+                  wiggleActive ? 'animate-btn-wiggle-active' : ''
+                }`}
+                style={{ animationDelay: '0.6s' }}
+                title="Sức Mạnh Của Kiến"
+              >
+                <span className="shrink-0">⚡</span>
+                <span>Sức Mạnh Của Kiến</span>
+              </button>
             </div>
           </div>
         </div>
@@ -368,111 +423,211 @@ export default function App() {
                 </span>
               </div>
               <span className="text-[11px] font-bold text-amber-800/80 hidden sm:inline">
-                Vuốt ngang để chọn chế độ học siêu vui!
+                Chọn chế độ học rèn luyện tư duy!
               </span>
             </div>
 
-            <DragScrollContainer
-              id="math-mode-selector-scroll"
-              fadeColorClass="from-amber-50"
-              className="w-full"
-            >
-              <div className="flex items-center gap-2 pb-1 px-1">
-                {/* 1. Khởi động */}
-                <button
-                  id="mode-selector-lessons"
-                  onClick={() => {
-                    audioService.playBoingPop();
-                    setGrade5MathView('lessons');
-                  }}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
-                    grade5MathView === 'lessons'
-                      ? 'bg-amber-600 text-white shadow-md border-b-3 border-amber-800 scale-102'
-                      : 'bg-white text-stone-700 hover:bg-amber-50/50 border-2 border-amber-200/80'
-                  }`}
-                >
-                  <span className="text-base">🚀</span>
-                  <span>Khởi động</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'lessons' ? 'bg-white/20' : 'bg-amber-100 text-amber-900'}`}>Theo bài 📖</span>
-                </button>
+            {/* Mobile View (< sm): DragScrollContainer */}
+            <div className="block sm:hidden">
+              <DragScrollContainer
+                id="math-mode-selector-scroll"
+                fadeColorClass="from-amber-50"
+                className="w-full"
+              >
+                <div className="flex items-center gap-2 pb-1 px-1">
+                  {/* 1. Khởi động */}
+                  <button
+                    id="mode-selector-lessons-mobile"
+                    onClick={() => {
+                      audioService.playBoingPop();
+                      setGrade5MathView('lessons');
+                    }}
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
+                      grade5MathView === 'lessons'
+                        ? 'bg-amber-600 text-white shadow-md border-b-3 border-amber-800 scale-102'
+                        : 'bg-white text-stone-700 hover:bg-amber-50/50 border-2 border-amber-200/80'
+                    }`}
+                  >
+                    <span className="text-base">🚀</span>
+                    <span>Khởi động</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'lessons' ? 'bg-white/20' : 'bg-amber-100 text-amber-900'}`}>Theo bài 📖</span>
+                  </button>
 
-                {/* 2. Đấu trường 60s */}
-                <button
-                  id="mode-selector-arena"
-                  onClick={() => {
-                    audioService.playBoingPop();
-                    setGrade5MathView('exam_hub');
-                    setMathHubTab('arena');
-                  }}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
-                    grade5MathView === 'exam_hub' && mathHubTab === 'arena'
-                      ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md border-b-3 border-orange-700 scale-102'
-                      : 'bg-white text-stone-700 hover:bg-orange-50/50 border-2 border-orange-200/80'
-                  }`}
-                >
-                  <Flame className={`w-4 h-4 ${grade5MathView === 'exam_hub' && mathHubTab === 'arena' ? 'text-yellow-200 fill-yellow-300' : 'text-orange-500 fill-orange-400'}`} />
-                  <span>Đấu trường 60s</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'exam_hub' && mathHubTab === 'arena' ? 'bg-white/20' : 'bg-orange-100 text-orange-800'}`}>Tốc độ ⚡</span>
-                </button>
+                  {/* 2. Đấu trường 60s */}
+                  <button
+                    id="mode-selector-arena-mobile"
+                    onClick={() => {
+                      audioService.playBoingPop();
+                      setGrade5MathView('exam_hub');
+                      setMathHubTab('arena');
+                    }}
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
+                      grade5MathView === 'exam_hub' && mathHubTab === 'arena'
+                        ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md border-b-3 border-orange-700 scale-102'
+                        : 'bg-white text-stone-700 hover:bg-orange-50/50 border-2 border-orange-200/80'
+                    }`}
+                  >
+                    <Flame className={`w-4 h-4 ${grade5MathView === 'exam_hub' && mathHubTab === 'arena' ? 'text-yellow-200 fill-yellow-300' : 'text-orange-500 fill-orange-400'}`} />
+                    <span>Đấu trường 60s</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'exam_hub' && mathHubTab === 'arena' ? 'bg-white/20' : 'bg-orange-100 text-orange-800'}`}>Tốc độ ⚡</span>
+                  </button>
 
-                {/* 3. Kiến kể chuyện */}
-                <button
-                  id="mode-selector-stories"
-                  onClick={() => {
-                    audioService.playBoingPop();
-                    setGrade5MathView('exam_hub');
-                    setMathHubTab('stories');
-                  }}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
-                    grade5MathView === 'exam_hub' && mathHubTab === 'stories'
-                      ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-amber-950 shadow-md border-b-3 border-amber-700 scale-102'
-                      : 'bg-white text-stone-700 hover:bg-amber-50/50 border-2 border-amber-200/80'
-                  }`}
-                >
-                  <span className="text-base">🐜</span>
-                  <span>Kiến kể chuyện</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'exam_hub' && mathHubTab === 'stories' ? 'bg-white/30 text-amber-950' : 'bg-amber-100 text-amber-800'}`}>Ghi nhớ 💡</span>
-                </button>
+                  {/* 3. Kiến kể chuyện */}
+                  <button
+                    id="mode-selector-stories-mobile"
+                    onClick={() => {
+                      audioService.playBoingPop();
+                      setGrade5MathView('exam_hub');
+                      setMathHubTab('stories');
+                    }}
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
+                      grade5MathView === 'exam_hub' && mathHubTab === 'stories'
+                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-amber-950 shadow-md border-b-3 border-amber-700 scale-102'
+                        : 'bg-white text-stone-700 hover:bg-amber-50/50 border-2 border-amber-200/80'
+                    }`}
+                  >
+                    <span className="text-base">🐜</span>
+                    <span>Kiến kể chuyện</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'exam_hub' && mathHubTab === 'stories' ? 'bg-white/30 text-amber-950' : 'bg-amber-100 text-amber-800'}`}>Ghi nhớ 💡</span>
+                  </button>
 
-                {/* 4. Kiến đố vui */}
-                <button
-                  id="mode-selector-riddles"
-                  onClick={() => {
-                    audioService.playBoingPop();
-                    setGrade5MathView('exam_hub');
-                    setMathHubTab('riddles');
-                  }}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
-                    grade5MathView === 'exam_hub' && mathHubTab === 'riddles'
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md border-b-3 border-amber-700 scale-102'
-                      : 'bg-white text-stone-700 hover:bg-yellow-50/50 border-2 border-yellow-200/80'
-                  }`}
-                >
-                  <Star className={`w-4 h-4 ${grade5MathView === 'exam_hub' && mathHubTab === 'riddles' ? 'text-yellow-200 fill-yellow-200' : 'text-amber-500 fill-amber-400'}`} />
-                  <span>Kiến đố vui</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'exam_hub' && mathHubTab === 'riddles' ? 'bg-white/20' : 'bg-yellow-100 text-amber-900'}`}>Sao tinh anh ⭐</span>
-                </button>
+                  {/* 4. Kiến đố vui */}
+                  <button
+                    id="mode-selector-riddles-mobile"
+                    onClick={() => {
+                      audioService.playBoingPop();
+                      setGrade5MathView('exam_hub');
+                      setMathHubTab('riddles');
+                    }}
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
+                      grade5MathView === 'exam_hub' && mathHubTab === 'riddles'
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md border-b-3 border-amber-700 scale-102'
+                        : 'bg-white text-stone-700 hover:bg-yellow-50/50 border-2 border-yellow-200/80'
+                    }`}
+                  >
+                    <Star className={`w-4 h-4 ${grade5MathView === 'exam_hub' && mathHubTab === 'riddles' ? 'text-yellow-200 fill-yellow-200' : 'text-amber-500 fill-amber-400'}`} />
+                    <span>Kiến đố vui</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'exam_hub' && mathHubTab === 'riddles' ? 'bg-white/20' : 'bg-yellow-100 text-amber-900'}`}>Sao tinh anh ⭐</span>
+                  </button>
 
-                {/* 5. Kiến luyện võ */}
-                <button
-                  id="mode-selector-review"
-                  onClick={() => {
-                    audioService.playBoingPop();
-                    setGrade5MathView('exam_hub');
-                    setMathHubTab('review');
-                  }}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
-                    grade5MathView === 'exam_hub' && mathHubTab === 'review'
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md border-b-3 border-emerald-800 scale-102'
-                      : 'bg-white text-stone-700 hover:bg-emerald-50/50 border-2 border-emerald-200/80'
-                  }`}
-                >
-                  <Award className="w-4 h-4 text-emerald-500" />
-                  <span>Kiến luyện võ</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'exam_hub' && mathHubTab === 'review' ? 'bg-white/20' : 'bg-emerald-100 text-emerald-800'}`}>Bí kíp 🥋</span>
-                </button>
-              </div>
-            </DragScrollContainer>
+                  {/* 5. Kiến luyện võ */}
+                  <button
+                    id="mode-selector-review-mobile"
+                    onClick={() => {
+                      audioService.playBoingPop();
+                      setGrade5MathView('exam_hub');
+                      setMathHubTab('review');
+                    }}
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap ${
+                      grade5MathView === 'exam_hub' && mathHubTab === 'review'
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md border-b-3 border-emerald-800 scale-102'
+                        : 'bg-white text-stone-700 hover:bg-emerald-50/50 border-2 border-emerald-200/80'
+                    }`}
+                  >
+                    <Award className="w-4 h-4 text-emerald-500" />
+                    <span>Kiến luyện võ</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${grade5MathView === 'exam_hub' && mathHubTab === 'review' ? 'bg-white/20' : 'bg-emerald-100 text-emerald-800'}`}>Bí kíp 🥋</span>
+                  </button>
+                </div>
+              </DragScrollContainer>
+            </div>
+
+            {/* Tablet & Desktop View (sm+): Balanced, non-scrolling responsive grid */}
+            <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 w-full">
+              {/* 1. Khởi động */}
+              <button
+                id="mode-selector-lessons"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  setGrade5MathView('lessons');
+                }}
+                className={`w-full px-3.5 py-3 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                  grade5MathView === 'lessons'
+                    ? 'bg-amber-600 text-white shadow-md border-b-3 border-amber-800 scale-102'
+                    : 'bg-white text-stone-700 hover:bg-amber-50/50 border-2 border-amber-200/80'
+                }`}
+              >
+                <span className="text-base shrink-0">🚀</span>
+                <span className="whitespace-nowrap">Khởi động</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${grade5MathView === 'lessons' ? 'bg-white/20' : 'bg-amber-100 text-amber-900'}`}>Theo bài 📖</span>
+              </button>
+
+              {/* 2. Đấu trường 60s */}
+              <button
+                id="mode-selector-arena"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  setGrade5MathView('exam_hub');
+                  setMathHubTab('arena');
+                }}
+                className={`w-full px-3.5 py-3 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                  grade5MathView === 'exam_hub' && mathHubTab === 'arena'
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md border-b-3 border-orange-700 scale-102'
+                    : 'bg-white text-stone-700 hover:bg-orange-50/50 border-2 border-orange-200/80'
+                }`}
+              >
+                <Flame className={`w-4 h-4 shrink-0 ${grade5MathView === 'exam_hub' && mathHubTab === 'arena' ? 'text-yellow-200 fill-yellow-300' : 'text-orange-500 fill-orange-400'}`} />
+                <span className="whitespace-nowrap">Đấu trường 60s</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${grade5MathView === 'exam_hub' && mathHubTab === 'arena' ? 'bg-white/20' : 'bg-orange-100 text-orange-800'}`}>Tốc độ ⚡</span>
+              </button>
+
+              {/* 3. Kiến kể chuyện */}
+              <button
+                id="mode-selector-stories"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  setGrade5MathView('exam_hub');
+                  setMathHubTab('stories');
+                }}
+                className={`w-full px-3.5 py-3 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                  grade5MathView === 'exam_hub' && mathHubTab === 'stories'
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-amber-950 shadow-md border-b-3 border-amber-700 scale-102'
+                    : 'bg-white text-stone-700 hover:bg-amber-50/50 border-2 border-amber-200/80'
+                }`}
+              >
+                <span className="text-base shrink-0">🐜</span>
+                <span className="whitespace-nowrap">Kiến kể chuyện</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${grade5MathView === 'exam_hub' && mathHubTab === 'stories' ? 'bg-white/30 text-amber-950' : 'bg-amber-100 text-amber-800'}`}>Ghi nhớ 💡</span>
+              </button>
+
+              {/* 4. Kiến đố vui */}
+              <button
+                id="mode-selector-riddles"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  setGrade5MathView('exam_hub');
+                  setMathHubTab('riddles');
+                }}
+                className={`w-full px-3.5 py-3 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                  grade5MathView === 'exam_hub' && mathHubTab === 'riddles'
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md border-b-3 border-amber-700 scale-102'
+                    : 'bg-white text-stone-700 hover:bg-yellow-50/50 border-2 border-yellow-200/80'
+                }`}
+              >
+                <Star className={`w-4 h-4 shrink-0 ${grade5MathView === 'exam_hub' && mathHubTab === 'riddles' ? 'text-yellow-200 fill-yellow-200' : 'text-amber-500 fill-amber-400'}`} />
+                <span className="whitespace-nowrap">Kiến đố vui</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${grade5MathView === 'exam_hub' && mathHubTab === 'riddles' ? 'bg-white/20' : 'bg-yellow-100 text-amber-900'}`}>Sao tinh anh ⭐</span>
+              </button>
+
+              {/* 5. Kiến luyện võ */}
+              <button
+                id="mode-selector-review"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  setGrade5MathView('exam_hub');
+                  setMathHubTab('review');
+                }}
+                className={`w-full px-3.5 py-3 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                  grade5MathView === 'exam_hub' && mathHubTab === 'review'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md border-b-3 border-emerald-800 scale-102'
+                    : 'bg-white text-stone-700 hover:bg-emerald-50/50 border-2 border-emerald-200/80'
+                }`}
+              >
+                <Award className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span className="whitespace-nowrap">Kiến luyện võ</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${grade5MathView === 'exam_hub' && mathHubTab === 'review' ? 'bg-white/20' : 'bg-emerald-100 text-emerald-800'}`}>Bí kíp 🥋</span>
+              </button>
+            </div>
           </div>
         )}
 

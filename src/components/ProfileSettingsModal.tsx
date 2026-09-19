@@ -16,8 +16,14 @@ import {
   Moon,
   CloudSun,
   ShieldCheck,
+  Database,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  FileCode,
 } from 'lucide-react';
 import { audioService } from '../services/audioService';
+import { supabaseService } from '../services/supabaseService';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -51,7 +57,24 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   user,
   onSaveProfile,
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'settings'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'settings' | 'database'>('profile');
+
+  // Supabase Database State
+  const [dbStatus, setDbStatus] = useState<{
+    tested: boolean;
+    connected: boolean;
+    message: string;
+    latencyMs?: number;
+  }>({
+    tested: false,
+    connected: supabaseService.isConfigured(),
+    message: supabaseService.isConfigured()
+      ? 'Đã phát hiện biến môi trường Supabase.'
+      : 'Đang dùng chế độ Offline / Local Storage (Bảo toàn dữ liệu 100%).',
+  });
+  const [isTestingDb, setIsTestingDb] = useState<boolean>(false);
+  const [isSyncingDb, setIsSyncingDb] = useState<boolean>(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Form State - Profile
   const [name, setName] = useState<string>(user.name || '');
@@ -113,6 +136,50 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     audioService.setMuted(!soundEnabled);
     if (soundEnabled) {
       audioService.playAmbientChime();
+    }
+  };
+
+  const handleTestDatabase = async () => {
+    audioService.playClick();
+    setIsTestingDb(true);
+    setSyncMessage(null);
+    try {
+      const result = await supabaseService.checkStatus();
+      setDbStatus({
+        tested: true,
+        connected: result.connected,
+        message: result.message,
+        latencyMs: result.latencyMs,
+      });
+      if (result.connected) {
+        audioService.playSuccess();
+      } else {
+        audioService.playLevelUp();
+      }
+    } catch {
+      setDbStatus({
+        tested: true,
+        connected: false,
+        message: 'Lỗi kiểm tra kết nối Supabase.',
+      });
+    } finally {
+      setIsTestingDb(false);
+    }
+  };
+
+  const handleSyncToSupabase = async () => {
+    audioService.playClick();
+    setIsSyncingDb(true);
+    setSyncMessage(null);
+    try {
+      await supabaseService.syncProfileToSupabase(user);
+      setSyncMessage('Đã đồng bộ hồ sơ, điểm số XP và chuỗi học tập lên Supabase thành công! 🚀');
+      audioService.playSuccess();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSyncMessage(`Chưa thể đồng bộ: ${msg}`);
+    } finally {
+      setIsSyncingDb(false);
     }
   };
 
@@ -205,7 +272,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 audioService.playClick();
                 setActiveTab('settings');
               }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm transition-all ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${
                 activeTab === 'settings'
                   ? 'bg-white text-amber-950 shadow-md scale-102'
                   : 'bg-white/20 hover:bg-white/30 text-white'
@@ -213,6 +280,20 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
             >
               <Palette className="w-4 h-4" />
               <span>Giao Diện & Âm Thanh</span>
+            </button>
+            <button
+              onClick={() => {
+                audioService.playClick();
+                setActiveTab('database');
+              }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${
+                activeTab === 'database'
+                  ? 'bg-white text-amber-950 shadow-md scale-102'
+                  : 'bg-white/20 hover:bg-white/30 text-white'
+              }`}
+            >
+              <Database className="w-4 h-4" />
+              <span>Supabase DB</span>
             </button>
           </div>
         </div>
@@ -554,6 +635,122 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: SUPABASE DATABASE CONFIGURATION & SYNC */}
+          {activeTab === 'database' && (
+            <div className="space-y-5 animate-fadeIn">
+              {/* Connection Status Card */}
+              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5 text-emerald-600" />
+                    Trạng Thái Kết Nối Supabase
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black ${
+                      dbStatus.connected
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        dbStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                      }`}
+                    />
+                    {dbStatus.connected ? 'Đang Kết Nối Supabase' : 'Chế Độ Local Storage'}
+                  </span>
+                </div>
+
+                <p className="text-xs text-stone-600 mb-3">{dbStatus.message}</p>
+
+                {dbStatus.latencyMs !== undefined && (
+                  <div className="text-[11px] font-bold text-emerald-700 mb-3 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Độ trễ phản hồi máy chủ: {dbStatus.latencyMs} ms
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isTestingDb}
+                    onClick={handleTestDatabase}
+                    className="px-3 py-1.5 rounded-xl bg-white border border-stone-300 hover:bg-stone-100 text-stone-800 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isTestingDb ? 'animate-spin text-amber-600' : ''}`} />
+                    {isTestingDb ? 'Đang Kiểm Tra...' : 'Kiểm Tra Kết Nối'}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSyncingDb}
+                    onClick={handleSyncToSupabase}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncingDb ? 'animate-spin' : ''}`} />
+                    {isSyncingDb ? 'Đang Đồng Bộ...' : 'Đồng Bộ Dữ Liệu Ngay'}
+                  </button>
+                </div>
+
+                {syncMessage && (
+                  <div className="mt-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>{syncMessage}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Database Entities Overview */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-black text-stone-800 uppercase tracking-wider">
+                    Kiến Trúc Supabase 2.0 (Dynamic & Centralized)
+                  </label>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                    Chuẩn Hóa 3NF + RPC
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
+                    <span className="font-black text-amber-900 block">👤 Người Dùng & Kho Vật Phẩm</span>
+                    <span className="text-[11px] text-stone-500">users, user_inventory</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
+                    <span className="font-black text-amber-900 block">📚 Khóa Học & Chủ Đề</span>
+                    <span className="text-[11px] text-stone-500">courses, topics</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
+                    <span className="font-black text-emerald-800 block">✨ Bài Học Động 1-N Bước</span>
+                    <span className="text-[11px] text-stone-500">lessons, lesson_steps (Không giới hạn)</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
+                    <span className="font-black text-emerald-800 block">🎯 Ngân Hàng Câu Hỏi Tập Trung</span>
+                    <span className="text-[11px] text-stone-500">questions, question_tags (Thi, Đấu trường, Đố)</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
+                    <span className="font-black text-amber-900 block">🏆 BXH Động (RPC Function)</span>
+                    <span className="text-[11px] text-stone-500">get_weekly_leaderboard (Chống row-lock)</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
+                    <span className="font-black text-amber-900 block">⏱️ Tiến Độ & Phiên Học</span>
+                    <span className="text-[11px] text-stone-500">user_lesson_progress, learning_sessions</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guide File Script */}
+              <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs text-stone-700 space-y-1.5">
+                <div className="flex items-center gap-2 font-black text-amber-900">
+                  <FileCode className="w-4 h-4 text-amber-600" />
+                  <span>Kịch Bản SQL Hoàn Chỉnh</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-stone-600">
+                  Tệp <code className="px-1.5 py-0.5 rounded bg-amber-200/70 font-mono text-amber-950 font-bold">supabase/schema.sql</code> và <code className="px-1.5 py-0.5 rounded bg-amber-200/70 font-mono text-amber-950 font-bold">supabase/seed.sql</code> đã được tạo sẵn trong dự án với đầy đủ bảng, quan hệ khóa ngoại, chính sách bảo mật RLS và dữ liệu mẫu. Bạn có thể mở tệp này và chạy trực tiếp tại <strong>SQL Editor</strong> trên trang quản trị Supabase.
+                </p>
               </div>
             </div>
           )}
