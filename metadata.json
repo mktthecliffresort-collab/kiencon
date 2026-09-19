@@ -1,0 +1,8 @@
+{
+  "name": "Kiến Học - Nền Tảng Học Tập Thích Ứng GDPT 2018",
+  "description": "Hệ thống học tập thích ứng, trò chơi hóa theo chuẩn chương trình GDPT 2018 dành cho học sinh Lớp 5 \u0026 Lớp 8 cùng linh vật Chú Kiến thông thái.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

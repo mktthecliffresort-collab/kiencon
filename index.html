@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kiến Học - Nền Tảng Học Tập Thích Ứng GDPT 2018</title>
+    <meta name="description" content="Hệ thống học tập thích ứng, trò chơi hóa theo chuẩn chương trình GDPT 2018 dành cho học sinh Lớp 5 & Lớp 8 cùng linh vật Chú Kiến thông thái." />
+    <meta property="og:title" content="Kiến Học - Nền Tảng Học Tập Thích Ứng GDPT 2018" />
+    <meta property="og:description" content="Hệ thống học tập thích ứng, trò chơi hóa theo chuẩn chương trình GDPT 2018 dành cho học sinh Lớp 5 & Lớp 8 cùng linh vật Chú Kiến thông thái." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Safeguard against environment/wrapper scripts assigning to read-only window.fetch getter
+      (function() {
+        try {
+          var target = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+          if (target && target.fetch) {
+            var currentFetch = target.fetch.bind(target);
+            var descriptor = {
+              get: function() {
+                return currentFetch;
+              },
+              set: function(fn) {
+                currentFetch = typeof fn === 'function' ? fn.bind(target) : fn;
+              },
+              configurable: true,
+              enumerable: true,
+            };
+            try {
+              Object.defineProperty(target, 'fetch', descriptor);
+            } catch (err) {}
+            if (typeof Window !== 'undefined' && Window.prototype) {
+              try {
+                Object.defineProperty(Window.prototype, 'fetch', descriptor);
+              } catch (err) {}
+            }
+          }
+        } catch (e) {
+          // Fallback gracefully
+        }
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-stone-50 text-stone-900 font-sans antialiased selection:bg-amber-100 selection:text-amber-900">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
