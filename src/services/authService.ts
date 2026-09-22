@@ -1,6 +1,7 @@
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
 import { UserProfile, GradeLevel } from '../types';
 import { INITIAL_USER_GRADE_5, INITIAL_USER_GRADE_8 } from '../data/mockData';
+import { userService } from './userService';
 
 export const INITIAL_WELCOME_XP = 250; // Điểm XP tặng thưởng ban đầu khi tạo tài khoản thành công
 const AUTH_SESSION_KEY = 'kienhoc_auth_session_v2';
@@ -347,6 +348,23 @@ class AuthService {
       }
     }
 
+    // Khởi tạo hồ sơ qua userService.createProfile để đồng bộ hoàn chỉnh
+    let finalProfile: UserProfile = newUserProfile;
+    try {
+      finalProfile = await userService.createProfile({
+        id: userId,
+        name: fullName,
+        nickname,
+        email: trimmedEmail,
+        grade,
+        avatar,
+        xp: INITIAL_WELCOME_XP,
+        themeSettings: newUserProfile.themeSettings,
+      });
+    } catch (e) {
+      console.warn('Gọi userService.createProfile:', e);
+    }
+
     // Lưu session
     const sessionData: AuthSessionData = {
       id: userId,
@@ -362,7 +380,7 @@ class AuthService {
 
     // Cập nhật local storage cho profile của grade
     try {
-      localStorage.setItem(`kienhoc_user_v1_${grade}`, JSON.stringify(newUserProfile));
+      localStorage.setItem(`kienhoc_user_v1_${grade}`, JSON.stringify(finalProfile));
       localStorage.removeItem(PENDING_VERIFICATION_KEY);
     } catch {
       // ignore
@@ -370,15 +388,19 @@ class AuthService {
 
     return {
       success: true,
-      user: newUserProfile,
+      user: finalProfile,
       xpBonusAwarded: INITIAL_WELCOME_XP,
       message: `Xác thực thành công! Chào mừng ${fullName} gia nhập Vương quốc Kiến. Bạn được tặng ngay +${INITIAL_WELCOME_XP} XP khởi đầu! 🎉`,
     };
   }
 
   // ============================================================================
-  // 3. GỬI LẠI MÃ XÁC MINH (RESEND CODE)
+  // 3. GỬI LẠI MÃ XÁC MINH (RESEND CODE) & SUPABASE AUTH RESEND METHOD
   // ============================================================================
+  public async resendVerification(email: string): Promise<{ success: boolean; newCode: string; message: string }> {
+    return this.resendCode(email);
+  }
+
   public async resendCode(email: string): Promise<{ success: boolean; newCode: string; message: string }> {
     const trimmedEmail = email.trim().toLowerCase();
     const newCode = Math.floor(100000 + Math.random() * 900000).toString();

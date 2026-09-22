@@ -465,60 +465,53 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* MOBILE VIEW (md:hidden): Structured 2-Tier Mobile Header */}
-        <div className="md:hidden py-2 space-y-2">
+        <div className="md:hidden py-1.5 space-y-1.5">
           {/* Row 1: Brand & Essential Quick Actions */}
-          <div className="flex items-center justify-between gap-2 h-11">
-            {/* Left: Compact Brand Logo */}
+          <div className="flex items-center justify-between gap-1.5 h-10">
+            {/* Left: Compact Brand Logo with Ant Icon */}
             <button
               onClick={() => {
                 audioService.playBoingPop();
                 onOpenAllies();
               }}
-              className="flex items-center gap-2 group text-left focus:outline-none min-w-0"
+              className="flex items-center gap-1.5 group text-left focus:outline-none shrink-0"
               title="Khám phá Kiến Con"
             >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 via-orange-400 to-amber-300 flex items-center justify-center text-white shadow-xs border border-amber-300 shrink-0">
-                <span className="text-xl">🐜</span>
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 via-orange-400 to-amber-300 flex items-center justify-center text-white shadow-xs border border-amber-300 shrink-0">
+                <span className="text-base">🐜</span>
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="font-black text-lg tracking-tight text-amber-950 truncate">
-                    KIẾN HỌC
-                  </span>
-                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
-                    Lớp {user.grade}
-                  </span>
-                </div>
-              </div>
+              <span className="font-black text-base tracking-tight text-amber-950">
+                KIẾN HỌC
+              </span>
             </button>
 
-            {/* Right: Leaves + Streak + Quests + Sound */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Mobile Energy Leaves */}
+            {/* Right: Clean, Balanced Control Cluster (No Overflow) */}
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Energy Leaves */}
               <button
                 onClick={() => {
                   audioService.playBoingPop();
                   setShowLeavesPopover(!showLeavesPopover);
                 }}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-xl border border-emerald-300 bg-emerald-100 text-emerald-950 font-black text-xs active:scale-95"
+                className="flex items-center gap-1 px-1.5 py-1 rounded-xl border border-emerald-300 bg-emerald-100 text-emerald-950 font-black text-xs active:scale-95 shrink-0"
                 title="Lá Sinh Mệnh"
               >
-                <span className="text-sm animate-leaf-flutter">🍃</span>
+                <span className="text-xs animate-leaf-flutter">🍃</span>
                 <span className="text-[11px] font-black">5</span>
               </button>
 
-              {/* Mobile Streak Button */}
+              {/* Streak Counter */}
               <button
                 onClick={handleStreakClick}
-                className={`relative flex items-center gap-1 px-2.5 py-1.5 rounded-xl border-2 font-black text-xs transition-all select-none active:scale-95 ${
+                className={`flex items-center gap-1 px-2 py-1 rounded-xl border font-black text-xs transition-all active:scale-95 shrink-0 ${
                   isFireActive
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-400 shadow-md ring-2 ring-orange-300'
-                    : 'bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-950'
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-400 shadow-xs ring-1 ring-orange-300'
+                    : 'bg-orange-100 border-orange-300 text-orange-950'
                 }`}
                 title={`Chuỗi học tập: ${user.streakDays} ngày`}
               >
                 <Flame
-                  className={`w-4 h-4 ${
+                  className={`w-3.5 h-3.5 shrink-0 ${
                     isFireActive
                       ? 'text-yellow-200 fill-yellow-300 animate-flame-active'
                       : 'text-orange-500 fill-orange-500'
@@ -529,48 +522,48 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </button>
 
-              {/* Mobile Daily Quests Button */}
+              {/* 1-Tap Sound Toggle (Preserved for Students & Parents) */}
+              <button
+                onClick={handleToggleSound}
+                className="p-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-700 active:scale-90 transition-all shrink-0"
+                title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
+              >
+                {isMuted ? <VolumeX className="w-3.5 h-3.5 text-stone-400" /> : <Volume2 className="w-3.5 h-3.5 text-amber-600" />}
+              </button>
+
+              {/* Daily Quests Button */}
               <button
                 id="mobile-header-quests"
                 onClick={() => {
                   audioService.playBoingPop();
                   onOpenQuests();
                 }}
-                className="relative p-2 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 active:scale-95 transition-all"
+                className="relative p-1.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 active:scale-95 transition-all shrink-0"
                 title="Nhiệm vụ hàng ngày"
               >
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-3.5 h-3.5" />
                 {unclaimedQuestsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border border-white text-white text-[9px] font-black flex items-center justify-center animate-bounce">
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 border border-white text-white text-[8px] font-black flex items-center justify-center animate-bounce">
                     {unclaimedQuestsCount}
                   </span>
                 )}
               </button>
 
-              {/* Mobile Sound Toggle */}
-              <button
-                onClick={handleToggleSound}
-                className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-700 active:scale-90 transition-all"
-                title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
-              >
-                {isMuted ? <VolumeX className="w-4 h-4 text-stone-400" /> : <Volume2 className="w-4 h-4 text-amber-600" />}
-              </button>
-
-              {/* Mobile Profile & Settings Button */}
+              {/* Profile / Settings Button */}
               <button
                 id="mobile-header-profile"
                 onClick={() => {
                   audioService.playBoingPop();
                   onOpenProfile();
                 }}
-                className="p-1.5 px-2 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black text-xs flex items-center gap-1 active:scale-90 transition-all"
+                className="p-1 px-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black text-xs flex items-center gap-1 active:scale-90 transition-all shrink-0"
                 title="Quản lý hồ sơ & cài đặt"
               >
-                <span className="text-base leading-none">{user.avatar || '🐜'}</span>
-                <Settings className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span className="text-sm leading-none">{user.avatar || '🐜'}</span>
+                <Settings className="w-3 h-3 text-amber-700 shrink-0" />
               </button>
 
-              {/* Mobile Auth Button */}
+              {/* Auth / Account Buttons */}
               {isAuthenticated ? (
                 <button
                   id="mobile-header-signout"
@@ -578,7 +571,7 @@ export const Header: React.FC<HeaderProps> = ({
                     audioService.playBoingPop();
                     if (onOpenAuth) onOpenAuth('signout_confirm');
                   }}
-                  className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 active:scale-90 transition-all"
+                  className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 active:scale-90 transition-all shrink-0"
                   title="Thoát tài khoản"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -590,29 +583,29 @@ export const Header: React.FC<HeaderProps> = ({
                     audioService.playBoingPop();
                     if (onOpenAuth) onOpenAuth('signup');
                   }}
-                  className="px-2 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 font-black text-[11px] flex items-center gap-1 active:scale-95 shadow-2xs shrink-0"
+                  className="px-2 py-1 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 font-black text-[11px] flex items-center gap-1 active:scale-95 shadow-2xs shrink-0"
                   title="Tạo tài khoản nhận ngay +250 XP ban đầu"
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>+250XP</span>
+                  <UserPlus className="w-3 h-3" />
+                  <span className="font-black">+250XP</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Row 2: Grade Switcher & Achievements */}
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-100/80">
-            {/* Left: Compact Grade Switcher */}
-            <div className="flex items-center bg-amber-50 p-1 rounded-xl border border-amber-200 gap-1 shrink-0">
+          {/* Row 2: Unified Segmented Grade Switcher & Achievements */}
+          <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-amber-100">
+            {/* Left: Segmented Grade Switcher */}
+            <div className="flex items-center bg-stone-100/90 p-0.5 rounded-xl border border-stone-200 gap-0.5 shrink-0">
               <button
                 id="mobile-switch-grade-5"
                 onClick={() => {
                   audioService.playBoingPop();
                   onSwitchGrade(5);
                 }}
-                className={`px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
                   user.grade === 5
-                    ? 'bg-amber-400 text-amber-950 shadow-xs border border-amber-500/50'
+                    ? 'bg-amber-400 text-amber-950 shadow-xs border border-amber-500/40'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
               >
@@ -626,9 +619,9 @@ export const Header: React.FC<HeaderProps> = ({
                   audioService.playBoingPop();
                   onSwitchGrade(8);
                 }}
-                className={`px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
                   user.grade === 8
-                    ? 'bg-sky-400 text-sky-950 shadow-xs border border-sky-500/50'
+                    ? 'bg-sky-400 text-sky-950 shadow-xs border border-sky-500/40'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
               >
@@ -638,7 +631,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Right: Leaderboard & Level */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               {/* Leaderboard Button */}
               <button
                 id="mobile-header-leaderboard"
@@ -646,10 +639,10 @@ export const Header: React.FC<HeaderProps> = ({
                   audioService.playBoingPop();
                   onOpenLeaderboard();
                 }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black text-xs active:scale-95 transition-all shadow-2xs"
+                className="flex items-center gap-1 px-2 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black text-xs active:scale-95 transition-all shadow-2xs shrink-0"
                 title="Bảng Xếp Hạng"
               >
-                <Trophy className="w-3.5 h-3.5 text-amber-700 fill-amber-500" />
+                <Trophy className="w-3.5 h-3.5 text-amber-700 fill-amber-500 shrink-0" />
                 <span>BXH</span>
               </button>
 
@@ -660,14 +653,14 @@ export const Header: React.FC<HeaderProps> = ({
                   audioService.playBoingPop();
                   onOpenMastery();
                 }}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-purple-100 hover:bg-purple-200 border border-purple-300 text-purple-950 font-black text-xs active:scale-95 transition-all shadow-2xs"
+                className="flex items-center gap-1 px-1.5 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 border border-purple-300 text-purple-950 font-black text-xs active:scale-95 transition-all shadow-2xs shrink-0"
                 title="Sức mạnh của Kiến"
               >
-                <span className="px-1 py-0.2 rounded bg-purple-500 text-white text-[10px] font-black">
+                <span className="px-1 py-0.2 rounded bg-purple-500 text-white text-[9px] font-black shrink-0">
                   Lv{user.level}
                 </span>
-                <span className="font-bold text-purple-900 text-[11px]">{user.xp} XP</span>
-                <span>⭐</span>
+                <span className="font-bold text-purple-900 text-[11px] whitespace-nowrap">{user.xp} XP</span>
+                <span className="text-[10px]">⭐</span>
               </button>
             </div>
           </div>

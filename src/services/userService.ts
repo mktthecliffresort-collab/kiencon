@@ -2,6 +2,38 @@ import { userRepository } from '../repositories';
 import { UserProfile, GradeLevel } from '../types';
 
 export const userService = {
+  async createProfile(profileData: {
+    id?: string;
+    name: string;
+    nickname?: string;
+    email?: string;
+    grade: GradeLevel;
+    avatar?: string;
+    xp?: number;
+    level?: number;
+    streakDays?: number;
+    themeSettings?: UserProfile['themeSettings'];
+  }): Promise<UserProfile> {
+    const grade = profileData.grade;
+    const baseProfile = await userRepository.getUserProfile(grade);
+    const newProfile: UserProfile = {
+      ...baseProfile,
+      id: profileData.id || `user_${Date.now()}`,
+      name: profileData.name,
+      nickname: profileData.nickname || profileData.name,
+      email: profileData.email || baseProfile.email,
+      grade: profileData.grade,
+      avatar: profileData.avatar || baseProfile.avatar || '🐜',
+      xp: typeof profileData.xp === 'number' ? profileData.xp : (baseProfile.xp || 50),
+      level: profileData.level || baseProfile.level || 1,
+      streakDays: profileData.streakDays || baseProfile.streakDays || 1,
+      lastActiveDate: new Date().toISOString().split('T')[0],
+      themeSettings: profileData.themeSettings || baseProfile.themeSettings,
+    };
+
+    return userRepository.updateUserProfile(newProfile);
+  },
+
   async getProfile(grade: GradeLevel): Promise<UserProfile> {
     return userRepository.getUserProfile(grade);
   },

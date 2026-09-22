@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { GradeLevel, UserProfile, Subject, Lesson, DailyQuest, KHTNDomain } from './types';
 import { userService } from './services/userService';
 import { curriculumService } from './services/curriculumService';
@@ -17,7 +18,7 @@ import { AuthModal } from './components/AuthModal';
 import { authService } from './services/authService';
 import { Grade5MathReviewHub } from './components/Grade5MathReview/Grade5MathReviewHub';
 import { DragScrollContainer } from './components/DragScrollContainer';
-import { fireButtonParticleBurst } from './utils/confettiHelper';
+import { fireButtonParticleBurst, fireMiniBurst } from './utils/confettiHelper';
 import { Sparkles, Compass, ShieldCheck, Heart, BookOpen, Trophy, Flame, Star, Award, Zap } from 'lucide-react';
 
 export default function App() {
@@ -40,10 +41,11 @@ export default function App() {
   const [leaderboardModalOpen, setLeaderboardModalOpen] = useState<boolean>(false);
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
 
-  // Account Authentication Modal
+  // Account Authentication Modal & Toast
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'signout_confirm'>('signup');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isAuthenticated());
+  const [authNotificationToast, setAuthNotificationToast] = useState<string | null>(null);
 
   // Listen to session changes
   useEffect(() => {
@@ -58,12 +60,20 @@ export default function App() {
     setAuthModalOpen(true);
   };
 
-  const handleAuthSuccess = (authUser: UserProfile) => {
+  const handleAuthSuccess = (authUser: UserProfile, message?: string) => {
     setUser(authUser);
     setIsAuthenticated(true);
     if (authUser.grade && authUser.grade !== currentGrade) {
       setCurrentGrade(authUser.grade);
     }
+    // Notification animation announcing welcome message with +50 XP
+    setAuthNotificationToast(message || 'Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
+    audioService.playCelebrationBurst();
+    fireMiniBurst();
+
+    setTimeout(() => {
+      setAuthNotificationToast(null);
+    }, 5000);
   };
 
   const handleSignOutSuccess = (defaultUser: UserProfile) => {
@@ -294,7 +304,7 @@ export default function App() {
             <div className="space-y-2 flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="shrink-0 text-xs font-black uppercase tracking-wider text-amber-950 bg-white/95 px-3 py-1 rounded-full shadow-xs border border-amber-300">
-                  {currentGrade === 5 ? '🎒 Kiến Con Lớp 5' : '🔬 Kiến Con Lớp 8'}
+                  {currentGrade === 5 ? '🎒 Kiến Con Tinh Anh' : '🔬 Kiến Con Khám Phá'}
                 </span>
                 <span className="shrink-0 text-sm font-black text-amber-950">
                   Chào {user.name || user.nickname || 'Bạn Kiến'}! 🌟
@@ -312,66 +322,61 @@ export default function App() {
               </p>
             </div>
 
-            {/* Action buttons: Mobile has drag-scroll; Tablet (sm to xl) has balanced 3-col grid; Desktop (xl+) has a clean flex row */}
-            {/* 1. Mobile View (< sm) */}
+            {/* Action buttons: Mobile has structured responsive grid; Tablet (sm to xl) has balanced 3-col grid; Desktop (xl+) has a clean flex row */}
+            {/* 1. Mobile View (< sm): 2 prominent primary action cards + 1 secondary mastery pill, zero truncation */}
             <div className="block sm:hidden w-full">
-              <DragScrollContainer
-                id="hero-actions-scroll-mobile"
-                fadeColorClass="from-amber-100/80"
-                className="w-full"
-              >
-                <div className="flex items-center gap-2 pb-1 px-1">
-                  <button
-                    id="hero-btn-leaderboard-mobile"
-                    onClick={(e) => {
-                      audioService.playTinhTong();
-                      fireButtonParticleBurst(e);
-                      setLeaderboardModalOpen(true);
-                    }}
-                    className={`flex-shrink-0 px-4 py-3 rounded-2xl text-sm font-black bg-white hover:bg-amber-50 text-amber-950 border-b-4 border-amber-500 shadow-md flex items-center gap-2 active:translate-y-1 active:border-b-0 transition-all whitespace-nowrap btn-hero-wiggle ${
-                      wiggleActive ? 'animate-btn-wiggle-active' : ''
-                    }`}
-                    style={{ animationDelay: '0s' }}
-                    title="Bảng Xếp Hạng Học Sinh"
-                  >
-                    <Trophy className="w-5 h-5 text-amber-600 fill-amber-500 animate-wiggle" />
-                    <span>🏆 Đua Top Kiến</span>
-                  </button>
+              <div className="grid grid-cols-2 gap-2.5 w-full">
+                <button
+                  id="hero-btn-leaderboard-mobile"
+                  onClick={(e) => {
+                    audioService.playTinhTong();
+                    fireButtonParticleBurst(e);
+                    setLeaderboardModalOpen(true);
+                  }}
+                  className={`w-full py-2.5 px-2 rounded-2xl text-xs sm:text-sm font-black bg-white hover:bg-amber-50 text-amber-950 border-b-4 border-amber-500 shadow-md flex items-center justify-center gap-1.5 active:translate-y-1 active:border-b-0 transition-all whitespace-nowrap btn-hero-wiggle ${
+                    wiggleActive ? 'animate-btn-wiggle-active' : ''
+                  }`}
+                  style={{ animationDelay: '0s' }}
+                  title="Bảng Xếp Hạng Học Sinh"
+                >
+                  <Trophy className="w-4 h-4 text-amber-600 fill-amber-500 animate-wiggle shrink-0" />
+                  <span>Đua Top Kiến</span>
+                </button>
 
-                  <button
-                    id="hero-btn-allies-mobile"
-                    onClick={(e) => {
-                      audioService.playTinhTong();
-                      fireButtonParticleBurst(e);
-                      setAlliesModalOpen(true);
-                    }}
-                    className={`flex-shrink-0 px-4 py-3 rounded-2xl text-sm font-black bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-b-4 border-emerald-700 shadow-md flex items-center gap-2 active:translate-y-1 active:border-b-0 transition-all hover:brightness-105 whitespace-nowrap btn-hero-wiggle ${
-                      wiggleActive ? 'animate-btn-wiggle-active' : ''
-                    }`}
-                    style={{ animationDelay: '0.3s' }}
-                    title="Biệt Đội Kiến Đồng Hành"
-                  >
-                    <span className="text-lg">🐜</span>
-                    <span>Biệt Đội Kiến</span>
-                  </button>
+                <button
+                  id="hero-btn-allies-mobile"
+                  onClick={(e) => {
+                    audioService.playTinhTong();
+                    fireButtonParticleBurst(e);
+                    setAlliesModalOpen(true);
+                  }}
+                  className={`w-full py-2.5 px-2 rounded-2xl text-xs sm:text-sm font-black bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-b-4 border-emerald-700 shadow-md flex items-center justify-center gap-1.5 active:translate-y-1 active:border-b-0 transition-all hover:brightness-105 whitespace-nowrap btn-hero-wiggle ${
+                    wiggleActive ? 'animate-btn-wiggle-active' : ''
+                  }`}
+                  style={{ animationDelay: '0.3s' }}
+                  title="Biệt Đội Kiến Đồng Hành"
+                >
+                  <span className="text-base shrink-0">🐜</span>
+                  <span>Biệt Đội Kiến</span>
+                </button>
 
-                  <button
-                    id="hero-btn-mastery-mobile"
-                    onClick={(e) => {
-                      audioService.playTinhTong();
-                      fireButtonParticleBurst(e);
-                      setMasteryModalOpen(true);
-                    }}
-                    className={`flex-shrink-0 px-4 py-3 rounded-2xl text-sm font-black bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-b-4 border-purple-800 shadow-md flex items-center gap-2 active:translate-y-1 active:border-b-0 transition-all hover:brightness-105 whitespace-nowrap btn-hero-wiggle ${
-                      wiggleActive ? 'animate-btn-wiggle-active' : ''
-                    }`}
-                    style={{ animationDelay: '0.6s' }}
-                    title="Sức Mạnh Của Kiến"
-                  >
-                    <span>⚡ Sức Mạnh Của Kiến</span>
-                  </button>
-                </div>
-              </DragScrollContainer>
+                <button
+                  id="hero-btn-mastery-mobile"
+                  onClick={(e) => {
+                    audioService.playTinhTong();
+                    fireButtonParticleBurst(e);
+                    setMasteryModalOpen(true);
+                  }}
+                  className={`col-span-2 py-2 px-3 rounded-xl text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-b-3 border-purple-800 shadow-sm flex items-center justify-center gap-1.5 active:translate-y-0.5 active:border-b-0 transition-all hover:brightness-105 whitespace-nowrap btn-hero-wiggle ${
+                    wiggleActive ? 'animate-btn-wiggle-active' : ''
+                  }`}
+                  style={{ animationDelay: '0.6s' }}
+                  title="Sức Mạnh Của Kiến"
+                >
+                  <span className="shrink-0 text-sm">⚡</span>
+                  <span>Bảng Năng Lực & Kỹ Năng Của Kiến</span>
+                </button>
+              </div>
             </div>
 
             {/* 2. Tablet & Desktop View (sm+): Balanced 3-col grid on tablet, sleek horizontal cluster on desktop */}
@@ -390,7 +395,7 @@ export default function App() {
                 title="Bảng Xếp Hạng Học Sinh"
               >
                 <Trophy className="w-5 h-5 text-amber-600 fill-amber-500 animate-wiggle shrink-0" />
-                <span>🏆 Đua Top Kiến</span>
+                <span>Đua Top Kiến</span>
               </button>
 
               <button
@@ -469,7 +474,7 @@ export default function App() {
                 fadeColorClass="from-amber-50"
                 className="w-full"
               >
-                <div className="flex items-center gap-2 pb-1 px-1">
+                <div className="flex items-center gap-2.5 pb-1 px-1 pr-8">
                   {/* 1. Khởi động */}
                   <button
                     id="mode-selector-lessons-mobile"
@@ -770,6 +775,39 @@ export default function App() {
         currentGrade={currentGrade}
         onSwitchGrade={handleSwitchGrade}
       />
+
+      {/* Welcome & XP Bonus Notification Toast */}
+      <AnimatePresence>
+        {authNotificationToast && (
+          <motion.aside
+            aria-label="Thông báo chào mừng"
+            initial={{ opacity: 0, y: -40, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -30, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] max-w-lg w-[90%] sm:w-auto shadow-2xl rounded-2xl bg-stone-900/95 text-white p-3.5 sm:px-5 sm:py-4 border-2 border-amber-400 flex items-center gap-3.5 backdrop-blur-md"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center text-xl shrink-0 shadow-md">
+              🍯
+            </div>
+            <div className="flex-1 pr-1">
+              <div className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                Thành Công
+              </div>
+              <div className="text-xs sm:text-sm font-black text-amber-50 leading-snug">
+                {authNotificationToast}
+              </div>
+            </div>
+            <button
+              onClick={() => setAuthNotificationToast(null)}
+              className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white text-xs font-bold transition-all shrink-0"
+              title="Đóng thông báo"
+            >
+              ✕
+            </button>
+          </motion.aside>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { GradeLevel, UserProfile } from '../types';
 import { authService, INITIAL_WELCOME_XP } from '../services/authService';
+import { userService } from '../services/userService';
 import { audioService } from '../services/audioService';
 import { fireGrandCelebration, fireMiniBurst } from '../utils/confettiHelper';
 import {
@@ -55,7 +57,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   currentGrade,
   onSwitchGrade,
 }) => {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'verify' | 'welcome' | 'signout_confirm'>(initialMode);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'verification_pending' | 'verify' | 'welcome' | 'signout_confirm'>(initialMode);
 
   // Sign In / Sign Up Form States
   const [fullName, setFullName] = useState<string>('');
@@ -75,6 +77,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Newly registered user for welcome screen
   const [welcomeUser, setWelcomeUser] = useState<UserProfile | null>(null);
@@ -117,11 +120,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (result.success && result.user) {
         audioService.playSuccess();
         fireMiniBurst();
-        onAuthSuccess(result.user, result.message);
+        setToastMessage('Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
+        onAuthSuccess(result.user, 'Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
         if (onSwitchGrade && result.user.grade !== currentGrade) {
           onSwitchGrade(result.user.grade);
         }
-        onClose();
+        setTimeout(() => {
+          onClose();
+        }, 1200);
       } else {
         audioService.playClick();
         setErrorMessage(result.message || 'Không thể đăng nhập. Vui lòng thử lại!');
@@ -147,6 +153,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     try {
+      // Ensure the grade choice ('Lớp 5' or 'Lớp 8') is captured and passed
+      // to userService.createProfile when the account is initialized in Supabase
+      await userService.createProfile({
+        name: fullName.trim(),
+        nickname: nickname.trim() || fullName.trim(),
+        email: email.trim().toLowerCase(),
+        grade: selectedGrade,
+        avatar: selectedAvatar,
+        xp: 50,
+      });
+
       const result = await authService.signUp({
         fullName,
         nickname: nickname.trim() || fullName.trim(),
@@ -162,7 +179,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setDemoCodeGiven(result.verificationCode);
         }
         setResendCooldown(30);
-        setMode('verify');
+        // Display visual state for 'Email Verification Pending'
+        setMode('verification_pending');
       } else {
         setErrorMessage(result.message || 'Đăng ký không thành công.');
       }
@@ -193,7 +211,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         audioService.playCelebrationBurst();
         fireGrandCelebration();
         setWelcomeUser(result.user);
+        setToastMessage('Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
         setMode('welcome');
+        onAuthSuccess(result.user, 'Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
       } else {
         audioService.playClick();
         setErrorMessage(result.message || 'Mã xác thực không hợp lệ.');
@@ -205,19 +225,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // 4. Handle Resend Code
-  const handleResendCode = async () => {
+  // 4. Handle Resend Verification (Calls Supabase Auth resend method)
+  const handleResendVerification = async () => {
     if (resendCooldown > 0) return;
     audioService.playClick();
     setLoading(true);
     try {
-      const result = await authService.resendCode(email);
-      setDemoCodeGiven(result.newCode);
+      const result = await authService.resendVerification(email);
+      if (result.newCode) {
+        setDemoCodeGiven(result.newCode);
+      }
       setResendCooldown(30);
-      setSuccessInfo('Mã mới đã được chuẩn bị!');
+      setSuccessInfo(result.message || 'Đã gửi lại yêu cầu xác minh email!');
       setTimeout(() => setSuccessInfo(null), 4000);
     } catch {
-      setErrorMessage('Không thể gửi lại mã vào lúc này.');
+      setErrorMessage('Không thể gửi lại email xác minh lúc này.');
     } finally {
       setLoading(false);
     }
@@ -228,7 +250,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     audioService.playCelebrationBurst();
     fireMiniBurst();
     if (welcomeUser) {
-      onAuthSuccess(welcomeUser, `Chào mừng ${welcomeUser.name}! Nhận ngay ${INITIAL_WELCOME_XP} XP thưởng khởi đầu!`);
+      setToastMessage('Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
+      onAuthSuccess(welcomeUser, 'Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
       if (onSwitchGrade && welcomeUser.grade !== currentGrade) {
         onSwitchGrade(welcomeUser.grade);
       }
@@ -284,13 +307,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <h2 className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
                 {mode === 'signin' && 'Đăng Nhập Vương Quốc'}
                 {mode === 'signup' && 'Gia Nhập Vương Quốc Kiến'}
-                {mode === 'verify' && 'Xác Minh Email Học Sinh'}
+                {(mode === 'verification_pending' || mode === 'verify') && 'Xác Minh Email Học Sinh'}
                 {mode === 'welcome' && 'Thưởng Chào Mừng! 🎉'}
                 {mode === 'signout_confirm' && 'Thoát Tài Khoản'}
               </h2>
               <p className="text-xs text-amber-100 font-medium">
                 {mode === 'signin' && 'Tiếp tục hành trình chinh phục tri thức cùng bạn Kiến'}
                 {mode === 'signup' && 'Tạo tài khoản nhận ngay quà tặng khởi đầu'}
+                {mode === 'verification_pending' && 'Email xác minh đã được gửi, đang chờ kích hoạt'}
                 {mode === 'verify' && 'Kiểm tra hộp thư để kích hoạt hồ sơ học tập'}
                 {mode === 'welcome' && 'Chúc mừng bạn đã là cư dân Vương quốc Kiến!'}
                 {mode === 'signout_confirm' && 'Dữ liệu học tập đã lưu an toàn trên hệ thống'}
@@ -301,6 +325,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Content Body */}
         <div className="p-6">
+          {/* Animated Welcome Toast Announcement */}
+          <AnimatePresence>
+            {toastMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -15, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -15, scale: 0.95 }}
+                transition={{ duration: 0.25 }}
+                className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-600 to-emerald-600 text-white shadow-lg flex items-center justify-between gap-3 border-2 border-amber-300"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">🎉</span>
+                  <span className="text-xs sm:text-sm font-black text-white">{toastMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setToastMessage(null)}
+                  className="w-6 h-6 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs flex items-center justify-center font-bold shrink-0"
+                >
+                  ✕
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
           {/* Error Banner */}
           {errorMessage && (
             <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 flex items-center gap-2.5 text-rose-700 text-xs font-semibold animate-shake">
@@ -433,68 +481,79 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Chọn Lớp Học Phù Hợp (Lớp 5 hoặc Lớp 8) */}
+              {/* Chọn Lớp Học Phù Hợp: Radio Button Group for 'Lớp 5' or 'Lớp 8' */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center justify-between">
-                  <span>Chọn Lớp Học Phù Hợp <span className="text-rose-500">*</span></span>
+                  <span>Chọn Lớp Học <span className="text-rose-500">*</span></span>
                   <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full">
-                    Có thể đổi bất kỳ lúc nào
+                    Có thể chuyển đổi bất kỳ lúc nào
                   </span>
                 </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {/* Option Lớp 5 */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      audioService.playClick();
-                      setSelectedGrade(5);
-                    }}
-                    className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col gap-1 relative ${
+
+                <div
+                  role="radiogroup"
+                  aria-label="Chọn Lớp Học: Lớp 5 hoặc Lớp 8"
+                  className="grid grid-cols-2 gap-2.5"
+                >
+                  {/* Radio Option Lớp 5 */}
+                  <label
+                    htmlFor="auth-grade-5-radio"
+                    onClick={() => audioService.playClick()}
+                    className={`p-3 rounded-2xl border-2 text-left cursor-pointer transition-all flex flex-col gap-1 relative select-none ${
                       selectedGrade === 5
-                        ? 'border-amber-500 bg-amber-50/80 shadow-xs'
-                        : 'border-stone-200 bg-stone-50/50 hover:border-amber-200'
+                        ? 'border-amber-500 bg-amber-50/90 shadow-xs ring-2 ring-amber-200'
+                        : 'border-stone-200 bg-stone-50/60 hover:border-amber-200 hover:bg-stone-50'
                     }`}
                   >
-                    {selectedGrade === 5 && (
-                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px]">
-                        ✓
-                      </span>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-lg">📐</span>
-                      <span className="font-black text-xs text-amber-950">LỚP 5</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          id="auth-grade-5-radio"
+                          name="gradeSelectionGroup"
+                          value="5"
+                          checked={selectedGrade === 5}
+                          onChange={() => setSelectedGrade(5)}
+                          className="w-4 h-4 text-amber-600 border-stone-300 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                        />
+                        <span className="font-black text-xs text-amber-950">LỚP 5</span>
+                      </div>
+                      <span className="text-base">📐</span>
                     </div>
-                    <p className="text-[11px] text-stone-600 leading-tight">
+                    <p className="text-[11px] text-stone-600 pl-6 leading-tight">
                       Toán học, Tiếng Việt, Lịch sử - Địa lí
                     </p>
-                  </button>
+                  </label>
 
-                  {/* Option Lớp 8 */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      audioService.playClick();
-                      setSelectedGrade(8);
-                    }}
-                    className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col gap-1 relative ${
+                  {/* Radio Option Lớp 8 */}
+                  <label
+                    htmlFor="auth-grade-8-radio"
+                    onClick={() => audioService.playClick()}
+                    className={`p-3 rounded-2xl border-2 text-left cursor-pointer transition-all flex flex-col gap-1 relative select-none ${
                       selectedGrade === 8
-                        ? 'border-blue-500 bg-blue-50/80 shadow-xs'
-                        : 'border-stone-200 bg-stone-50/50 hover:border-blue-200'
+                        ? 'border-blue-500 bg-blue-50/90 shadow-xs ring-2 ring-blue-200'
+                        : 'border-stone-200 bg-stone-50/60 hover:border-blue-200 hover:bg-stone-50'
                     }`}
                   >
-                    {selectedGrade === 8 && (
-                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px]">
-                        ✓
-                      </span>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-lg">🔬</span>
-                      <span className="font-black text-xs text-blue-950">LỚP 8</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          id="auth-grade-8-radio"
+                          name="gradeSelectionGroup"
+                          value="8"
+                          checked={selectedGrade === 8}
+                          onChange={() => setSelectedGrade(8)}
+                          className="w-4 h-4 text-blue-600 border-stone-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                        />
+                        <span className="font-black text-xs text-blue-950">LỚP 8</span>
+                      </div>
+                      <span className="text-base">🔬</span>
                     </div>
-                    <p className="text-[11px] text-stone-600 leading-tight">
-                      KHTN (Lí, Hóa, Sinh), Toán học, Tiếng Anh
+                    <p className="text-[11px] text-stone-600 pl-6 leading-tight">
+                      KHTN (Lí, Hóa, Sinh), Toán, Tiếng Anh
                     </p>
-                  </button>
+                  </label>
                 </div>
               </div>
 
@@ -611,30 +670,67 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {/* ========================================================================= */}
-          {/* MODE 3: VERIFY EMAIL WITH 6-DIGIT CODE */}
+          {/* MODE 3: EMAIL VERIFICATION PENDING & CODE ACTIVATION */}
           {/* ========================================================================= */}
-          {mode === 'verify' && (
-            <form onSubmit={handleVerifyCode} className="space-y-4">
-              <div className="text-center py-2">
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-100 border-2 border-amber-300 text-amber-700 flex items-center justify-center text-2xl mb-2 shadow-xs">
-                  📬
+          {(mode === 'verification_pending' || mode === 'verify') && (
+            <div className="space-y-4">
+              {/* Visual Card: Email Verification Pending */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-50 via-white to-amber-50/60 border-2 border-amber-300 shadow-sm relative overflow-hidden">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                    <Mail className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase tracking-wider">
+                        Email Verification Pending
+                      </span>
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black text-stone-900 leading-snug">
+                      Vui lòng kiểm tra hộp thư email của bạn
+                    </h3>
+                    <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+                      Chúng tôi đã gửi đường dẫn và mã xác nhận đến:
+                      <br />
+                      <span className="font-mono font-bold text-amber-950 bg-amber-100/80 px-2 py-0.5 rounded-md inline-block mt-0.5 break-all">
+                        {email}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-base font-black text-stone-800">
-                  Nhập Mã Xác Thực Email
-                </h3>
-                <p className="text-xs text-stone-600 mt-1">
-                  Mã 6 số đã được chuẩn bị cho hòm thư:
-                  <br />
-                  <strong className="text-stone-900 font-bold">{email}</strong>
-                </p>
+
+                <div className="mt-3.5 pt-3 border-t border-amber-200/80 text-[11px] text-stone-600 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    Vui lòng mở email và nhấn liên kết xác nhận (hoặc nhập mã 6 số bên dưới). Nếu chưa thấy, hãy kiểm tra thư mục <strong>Thư rác (Spam)</strong> hoặc <strong>Quảng cáo</strong>.
+                  </span>
+                </div>
+
+                {/* Resend Verification Button calling Supabase Auth resend method */}
+                <div className="mt-3.5 pt-3 border-t border-amber-200/80 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] text-stone-500 font-medium">Chưa nhận được email xác nhận?</span>
+                  <button
+                    type="button"
+                    disabled={resendCooldown > 0 || loading}
+                    onClick={handleResendVerification}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    <span>
+                      {resendCooldown > 0
+                        ? `Gửi lại sau (${resendCooldown}s)`
+                        : 'Gửi lại xác minh (Resend Verification)'}
+                    </span>
+                  </button>
+                </div>
               </div>
 
-              {/* Quick test code notification badge */}
+              {/* Quick test / immediate verification code badge if provided */}
               {demoCodeGiven && (
-                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between">
+                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-2">
                     <KeyRound className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Mã xác thực nhanh: <strong className="font-mono text-sm tracking-wider text-emerald-700">{demoCodeGiven}</strong></span>
+                    <span>Mã xác nhận nhanh: <strong className="font-mono text-sm tracking-wider text-emerald-700">{demoCodeGiven}</strong></span>
                   </div>
                   <button
                     type="button"
@@ -642,66 +738,63 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       audioService.playClick();
                       setVerificationCode(demoCodeGiven);
                     }}
-                    className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold"
+                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs active:scale-95 transition-all"
                   >
                     Điền nhanh
                   </button>
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1.5 text-center">
-                  Mã số xác nhận 6 chữ số
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  required
-                  autoFocus
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="------"
-                  className="w-full text-center tracking-[0.4em] font-mono text-2xl font-black py-3 rounded-2xl border-3 border-amber-300 focus:border-amber-500 focus:ring-4 focus:ring-amber-200 text-stone-900 outline-none transition-all shadow-inner"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || verificationCode.length < 6}
-                className="w-full py-3.5 rounded-2xl btn-ant-3d-green font-black text-white flex items-center justify-center gap-2 shadow-lg hover:brightness-105 active:scale-98 transition-all disabled:opacity-50"
-              >
-                {loading ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <ShieldCheck className="w-5 h-5" />
-                    <span>Xác Minh & Nhận Thưởng</span>
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center justify-between pt-2 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => {
-                    audioService.playClick();
-                    setMode('signup');
-                  }}
-                  className="text-stone-500 hover:text-stone-700"
-                >
-                  ← Quay lại sửa email
-                </button>
+              {/* Form to enter 6-digit code and verify */}
+              <form onSubmit={handleVerifyCode} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1 text-center">
+                    Nhập mã xác nhận gồm 6 chữ số
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    required
+                    autoFocus
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="------"
+                    className="w-full text-center tracking-[0.4em] font-mono text-2xl font-black py-2.5 rounded-2xl border-3 border-amber-300 focus:border-amber-500 focus:ring-4 focus:ring-amber-200 text-stone-900 outline-none transition-all shadow-inner"
+                  />
+                </div>
 
                 <button
-                  type="button"
-                  disabled={resendCooldown > 0 || loading}
-                  onClick={handleResendCode}
-                  className="text-amber-700 hover:text-amber-800 disabled:text-stone-400 font-bold"
+                  type="submit"
+                  disabled={loading || verificationCode.length < 6}
+                  className="w-full py-3.5 rounded-2xl btn-ant-3d-green font-black text-white flex items-center justify-center gap-2 shadow-lg hover:brightness-105 active:scale-98 transition-all disabled:opacity-50"
                 >
-                  {resendCooldown > 0 ? `Gửi lại sau (${resendCooldown}s)` : 'Gửi lại mã'}
+                  {loading ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-5 h-5" />
+                      <span>Xác Minh & Kích Hoạt Tài Khoản</span>
+                    </>
+                  )}
                 </button>
-              </div>
-            </form>
+
+                <div className="flex items-center justify-between pt-1 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      audioService.playClick();
+                      setMode('signup');
+                    }}
+                    className="text-stone-500 hover:text-stone-700"
+                  >
+                    ← Đổi email hoặc thông tin khác
+                  </button>
+                  <span className="text-[11px] text-stone-400">
+                    Bảo mật với Supabase
+                  </span>
+                </div>
+              </form>
+            </div>
           )}
 
           {/* ========================================================================= */}

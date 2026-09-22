@@ -122,7 +122,7 @@ export const DragScrollContainer: React.FC<DragScrollContainerProps> = ({
         onMouseLeave={handleMouseUpOrLeave}
         onClickCapture={handleClickCapture}
         onScroll={checkScrollability}
-        className={`w-full max-w-full overflow-x-auto no-scrollbar select-none touch-pan-x overscroll-x-contain cursor-grab active:cursor-grabbing scroll-smooth ${innerClassName}`}
+        className={`w-full max-w-full overflow-x-auto no-scrollbar select-none touch-pan-x overscroll-x-contain cursor-grab active:cursor-grabbing scroll-smooth pr-6 sm:pr-8 ${innerClassName}`}
         style={{
           WebkitOverflowScrolling: 'touch',
         }}
@@ -134,7 +134,7 @@ export const DragScrollContainer: React.FC<DragScrollContainerProps> = ({
       {showFadeGradients && canScrollRight && (
         <>
           <div
-            className={`absolute right-0 top-0 bottom-0 w-10 z-10 pointer-events-none bg-gradient-to-l ${fadeColorClass} to-transparent transition-opacity duration-300 opacity-95`}
+            className={`absolute right-0 top-0 bottom-0 w-8 z-10 pointer-events-none bg-gradient-to-l ${fadeColorClass} to-transparent transition-opacity duration-300 opacity-90`}
           />
           <button
             type="button"
@@ -143,12 +143,11 @@ export const DragScrollContainer: React.FC<DragScrollContainerProps> = ({
               const el = scrollRef.current;
               if (el) el.scrollBy({ left: 160, behavior: 'smooth' });
             }}
-            className="absolute right-0.5 top-1/2 z-20 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-500 text-white shadow-lg border-2 border-white flex items-center justify-center animate-bounce-horizontal hover:bg-amber-600 active:scale-90 transition-all cursor-pointer"
+            className="absolute right-0 top-1/2 z-20 w-6 h-6 rounded-full bg-amber-500 text-white shadow-md border-2 border-white flex items-center justify-center hover:bg-amber-600 active:scale-90 transition-all cursor-pointer -translate-y-1/2"
             title="Kéo hoặc bấm để xem thêm"
             aria-label="Kéo hoặc bấm để xem thêm"
           >
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-300 ring-1.5 ring-white animate-ping pointer-events-none" />
-            <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+            <ChevronRight className="w-3.5 h-3.5 stroke-[3]" />
           </button>
         </>
       )}
