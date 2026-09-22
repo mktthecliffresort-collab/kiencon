@@ -1,5 +1,5 @@
 import React from 'react';
-import { ALLIES } from '../data/mockData';
+import { ALLIES } from '../data/alliesData';
 import { GradeLevel } from '../types';
 import { Sparkles, X, Shield, BookOpen } from 'lucide-react';
 import { audioService } from '../services/audioService';

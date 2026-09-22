@@ -55,6 +55,61 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // ============================================================================
+  // MỖI LẦN ỨNG DỤNG RELOAD: Kiểm tra và load thông tin user từ Supabase (ưu tiên Supabase)
+  // ============================================================================
+  // MỖI LẦN ỨNG DỤNG RELOAD / MỞ LINK EMAIL:
+  // 1. Kiểm tra tham số ?verify_email=...&code=... để tự động xác thực và đăng nhập ngay
+  // 2. Kiểm tra và load thông tin user từ Supabase (ưu tiên Supabase)
+  // ============================================================================
+  useEffect(() => {
+    let isMounted = true;
+
+    async function handleInitAndVerification() {
+      // 1. Kiểm tra tham số xác thực email từ liên kết trong email
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const verifyEmailParam = urlParams.get('verify_email');
+        const verifyCodeParam = urlParams.get('code');
+
+        if (verifyEmailParam && verifyCodeParam) {
+          const verifyResult = await authService.verifyEmail(verifyEmailParam, verifyCodeParam);
+          if (verifyResult.success && verifyResult.user && isMounted) {
+            handleAuthSuccess(
+              verifyResult.user,
+              `🎉 Kích hoạt tài khoản thành công qua liên kết email! Chào mừng ${verifyResult.user.nickname || verifyResult.user.name} (+250 XP)!`
+            );
+            // Làm sạch URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+          }
+        }
+      } catch (linkErr) {
+        console.warn('Lỗi xử lý liên kết xác thực email:', linkErr);
+      }
+
+      // 2. Nếu không có link xác thực, kiểm tra phiên đăng nhập từ Supabase
+      try {
+        const syncedUser = await authService.fetchCurrentUserFromSupabase();
+        if (syncedUser && isMounted) {
+          setUser(syncedUser);
+          setIsAuthenticated(true);
+          if (syncedUser.grade) {
+            setCurrentGrade(syncedUser.grade);
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi kiểm tra user từ Supabase khi reload:', err);
+      }
+    }
+
+    handleInitAndVerification();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleOpenAuth = (mode: 'signin' | 'signup' | 'signout_confirm' = 'signup') => {
     setAuthModalMode(mode);
     setAuthModalOpen(true);
@@ -66,8 +121,8 @@ export default function App() {
     if (authUser.grade && authUser.grade !== currentGrade) {
       setCurrentGrade(authUser.grade);
     }
-    // Notification animation announcing welcome message with +50 XP
-    setAuthNotificationToast(message || 'Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
+    // Notification animation announcing welcome message with +250 XP
+    setAuthNotificationToast(message || `Chào mừng ${authUser.name} đến với Kiến Học! +250 XP khởi đầu! 🎉`);
     audioService.playCelebrationBurst();
     fireMiniBurst();
 
@@ -154,6 +209,10 @@ export default function App() {
   }, [currentGrade, selectedSubjectId]);
 
   const handleSwitchGrade = (newGrade: GradeLevel) => {
+    // Khi đã đăng nhập, hệ thống chỉ hiển thị ra Lớp học đã chọn, các lớp khác cần được ẩn đi
+    if (isAuthenticated && user?.grade && newGrade !== user.grade) {
+      return;
+    }
     if (newGrade === currentGrade) return;
     setCurrentGrade(newGrade);
   };
@@ -307,7 +366,7 @@ export default function App() {
                   {currentGrade === 5 ? '🎒 Kiến Con Tinh Anh' : '🔬 Kiến Con Khám Phá'}
                 </span>
                 <span className="shrink-0 text-sm font-black text-amber-950">
-                  Chào {user.name || user.nickname || 'Bạn Kiến'}! 🌟
+                  Chào {user.nickname ? (user.name && user.nickname !== user.name ? `${user.nickname} (${user.name})` : user.nickname) : user.name || 'Bạn Kiến'}! 🌟
                 </span>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-stone-950 tracking-tight leading-tight">

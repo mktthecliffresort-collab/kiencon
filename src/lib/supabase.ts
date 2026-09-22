@@ -1,9 +1,15 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
 
-// Đọc thông tin kết nối Supabase từ biến môi trường
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Đọc thông tin kết nối Supabase từ biến môi trường (hỗ trợ cả Vite client và Node.js server)
+const supabaseUrl: string =
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_URL) ||
+  (typeof process !== 'undefined' && process.env && process.env.VITE_SUPABASE_URL) ||
+  '';
+const supabaseAnonKey: string =
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) ||
+  (typeof process !== 'undefined' && process.env && process.env.VITE_SUPABASE_ANON_KEY) ||
+  '';
 
 // Kiểm tra xem đã cung cấp credentials Supabase chưa
 export const isSupabaseConfigured = (): boolean => {

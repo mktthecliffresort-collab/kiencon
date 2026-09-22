@@ -121,12 +121,51 @@ export const supabaseService = {
           if (khamPhaStep && typeof khamPhaStep.content === 'object' && khamPhaStep.content !== null) {
             const c = khamPhaStep.content as Record<string, unknown>;
             discover = {
-              storyTitle: (c.storyTitle as string) || fallbackMatch.discover.storyTitle,
-              storyContent: (c.story as string) || fallbackMatch.discover.storyContent,
-              realWorldContext: (c.context as string) || fallbackMatch.discover.realWorldContext,
-              promptQuestion: (c.prompt as string) || fallbackMatch.discover.promptQuestion,
+              storyTitle: (c.storyTitle as string) || (c.title as string) || fallbackMatch?.discover?.storyTitle || d.title,
+              storyContent: (c.story as string) || (c.storyContent as string) || fallbackMatch?.discover?.storyContent || '',
+              realWorldContext: (c.context as string) || (c.realWorldContext as string) || fallbackMatch?.discover?.realWorldContext || '',
+              promptQuestion: (c.prompt as string) || (c.promptQuestion as string) || fallbackMatch?.discover?.promptQuestion || '',
               imageUrl: c.imageUrl as string | undefined,
-              keyObservation: (c.keyObservation as string) || fallbackMatch.discover.keyObservation,
+              keyObservation: (c.keyObservation as string) || fallbackMatch?.discover?.keyObservation || '',
+            };
+          }
+
+          const luyenTapStep = stepsData.find((s) => s.step_type === 'luyen_tap');
+          if (luyenTapStep && typeof luyenTapStep.content === 'object' && luyenTapStep.content !== null) {
+            const c = luyenTapStep.content as Record<string, unknown>;
+            practice = {
+              type: (c.type as any) || fallbackMatch?.practice?.type || 'interactive_choice',
+              challengeTitle: (c.challengeTitle as string) || fallbackMatch?.practice?.challengeTitle || 'Thử Thách Luyện Tập',
+              instructions: (c.instructions as string) || fallbackMatch?.practice?.instructions || 'Cùng luyện tập giải bài nhé!',
+              hintStage1: (c.hint as string) || fallbackMatch?.practice?.hintStage1 || 'Hãy quan sát kỹ các số liệu',
+              hintStage2: fallbackMatch?.practice?.hintStage2 || 'Áp dụng quy tắc đã học',
+              genericQuestion: fallbackMatch?.practice?.genericQuestion,
+              mathTasks: fallbackMatch?.practice?.mathTasks,
+            };
+          }
+
+          const vanDungStep = stepsData.find((s) => s.step_type === 'van_dung');
+          if (vanDungStep && typeof vanDungStep.content === 'object' && vanDungStep.content !== null) {
+            const c = vanDungStep.content as Record<string, unknown>;
+            apply = {
+              dilemmaTitle: (c.dilemmaTitle as string) || fallbackMatch?.apply?.dilemmaTitle || 'Tình Huống Thực Tế',
+              situation: (c.situation as string) || fallbackMatch?.apply?.situation || '',
+              question: (c.question as string) || fallbackMatch?.apply?.question || '',
+              options: fallbackMatch?.apply?.options || [],
+              hintStage1: fallbackMatch?.apply?.hintStage1 || 'Đọc kỹ câu hỏi tình huống',
+              hintStage2: fallbackMatch?.apply?.hintStage2 || 'Tính toán cẩn thận trước khi chọn',
+            };
+          }
+
+          const giangLaiStep = stepsData.find((s) => s.step_type === 'giang_lai');
+          if (giangLaiStep && typeof giangLaiStep.content === 'object' && giangLaiStep.content !== null) {
+            const c = giangLaiStep.content as Record<string, unknown>;
+            teachBack = {
+              promptTitle: (c.promptTitle as string) || fallbackMatch?.teachBack?.promptTitle || 'Giảng lại bài học',
+              guidingQuestion: (c.guidingQuestion as string) || fallbackMatch?.teachBack?.guidingQuestion || 'Bạn có thể hướng dẫn lại bài này cho bạn Kiến không?',
+              helperBulletPoints: (c.helperPoints as string[]) || (c.helperBulletPoints as string[]) || fallbackMatch?.teachBack?.helperBulletPoints || [],
+              sampleStarters: fallbackMatch?.teachBack?.sampleStarters || ['Để giải bài này, đầu tiên...', 'Tiếp theo chúng mình...'],
+              expectedConcepts: fallbackMatch?.teachBack?.expectedConcepts || ['Quy tắc tính', 'Cách giải'],
             };
           }
         }
@@ -171,21 +210,60 @@ export const supabaseService = {
         .order('order_index', { ascending: true });
 
       let discover = fallback?.discover || LESSONS[0].discover;
-      const practice = fallback?.practice || LESSONS[0].practice;
-      const apply = fallback?.apply || LESSONS[0].apply;
-      const teachBack = fallback?.teachBack || LESSONS[0].teachBack;
+      let practice = fallback?.practice || LESSONS[0].practice;
+      let apply = fallback?.apply || LESSONS[0].apply;
+      let teachBack = fallback?.teachBack || LESSONS[0].teachBack;
 
       if (stepsData && stepsData.length > 0) {
         const khamPhaStep = stepsData.find((s) => s.step_type === 'kham_pha');
         if (khamPhaStep && typeof khamPhaStep.content === 'object' && khamPhaStep.content !== null) {
           const c = khamPhaStep.content as Record<string, unknown>;
           discover = {
-            storyTitle: (c.storyTitle as string) || discover.storyTitle,
-            storyContent: (c.story as string) || discover.storyContent,
-            realWorldContext: (c.context as string) || discover.realWorldContext,
-            promptQuestion: (c.prompt as string) || discover.promptQuestion,
+            storyTitle: (c.storyTitle as string) || (c.title as string) || discover.storyTitle,
+            storyContent: (c.story as string) || (c.storyContent as string) || discover.storyContent,
+            realWorldContext: (c.context as string) || (c.realWorldContext as string) || discover.realWorldContext,
+            promptQuestion: (c.prompt as string) || (c.promptQuestion as string) || discover.promptQuestion,
             imageUrl: c.imageUrl as string | undefined,
             keyObservation: (c.keyObservation as string) || discover.keyObservation,
+          };
+        }
+
+        const luyenTapStep = stepsData.find((s) => s.step_type === 'luyen_tap');
+        if (luyenTapStep && typeof luyenTapStep.content === 'object' && luyenTapStep.content !== null) {
+          const c = luyenTapStep.content as Record<string, unknown>;
+          practice = {
+            type: (c.type as any) || practice.type || 'interactive_choice',
+            challengeTitle: (c.challengeTitle as string) || practice.challengeTitle || 'Thử Thách Luyện Tập',
+            instructions: (c.instructions as string) || practice.instructions || 'Cùng luyện tập giải bài nhé!',
+            hintStage1: (c.hint as string) || practice.hintStage1 || 'Hãy quan sát kỹ các số liệu',
+            hintStage2: practice.hintStage2 || 'Áp dụng quy tắc đã học',
+            genericQuestion: practice.genericQuestion,
+            mathTasks: practice.mathTasks,
+          };
+        }
+
+        const vanDungStep = stepsData.find((s) => s.step_type === 'van_dung');
+        if (vanDungStep && typeof vanDungStep.content === 'object' && vanDungStep.content !== null) {
+          const c = vanDungStep.content as Record<string, unknown>;
+          apply = {
+            dilemmaTitle: (c.dilemmaTitle as string) || apply.dilemmaTitle || 'Tình Huống Thực Tế',
+            situation: (c.situation as string) || apply.situation || '',
+            question: (c.question as string) || apply.question || '',
+            options: apply.options || [],
+            hintStage1: apply.hintStage1 || 'Đọc kỹ câu hỏi tình huống',
+            hintStage2: apply.hintStage2 || 'Tính toán cẩn thận trước khi chọn',
+          };
+        }
+
+        const giangLaiStep = stepsData.find((s) => s.step_type === 'giang_lai');
+        if (giangLaiStep && typeof giangLaiStep.content === 'object' && giangLaiStep.content !== null) {
+          const c = giangLaiStep.content as Record<string, unknown>;
+          teachBack = {
+            promptTitle: (c.promptTitle as string) || teachBack.promptTitle || 'Giảng lại bài học',
+            guidingQuestion: (c.guidingQuestion as string) || teachBack.guidingQuestion || 'Bạn có thể hướng dẫn lại bài này cho bạn Kiến không?',
+            helperBulletPoints: (c.helperPoints as string[]) || (c.helperBulletPoints as string[]) || teachBack.helperBulletPoints || [],
+            sampleStarters: teachBack.sampleStarters || ['Để giải bài này, đầu tiên...', 'Tiếp theo chúng mình...'],
+            expectedConcepts: teachBack.expectedConcepts || ['Quy tắc tính', 'Cách giải'],
           };
         }
       }
@@ -289,6 +367,7 @@ export const supabaseService = {
         id: data.id,
         name: data.full_name,
         nickname: data.nickname || data.full_name,
+        birthDate: (settings.birthDate as string) || localProfile.birthDate || '2014-08-15',
         grade: data.current_grade as GradeLevel,
         avatar: data.avatar || '🐜',
         xp: data.total_xp || 0,
@@ -362,15 +441,18 @@ export const supabaseService = {
         total_xp: profile.xp || 0,
         streak_days: profile.streakDays || 1,
         level: profile.level || 1,
-        settings: profile.themeSettings
-          ? {
-              mode: profile.themeSettings.mode,
-              accentColor: profile.themeSettings.accentColor,
-              soundEnabled: profile.themeSettings.soundEnabled,
-              soundVolume: profile.themeSettings.soundVolume,
-              ambientChime: profile.themeSettings.ambientChime,
-            }
-          : {},
+        settings: {
+          ...(profile.themeSettings
+            ? {
+                mode: profile.themeSettings.mode,
+                accentColor: profile.themeSettings.accentColor,
+                soundEnabled: profile.themeSettings.soundEnabled,
+                soundVolume: profile.themeSettings.soundVolume,
+                ambientChime: profile.themeSettings.ambientChime,
+              }
+            : {}),
+          ...(profile.birthDate ? { birthDate: profile.birthDate } : {}),
+        },
         updated_at: new Date().toISOString(),
       };
 

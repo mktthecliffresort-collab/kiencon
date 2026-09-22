@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lesson, Subject, UserProfile, AntAlly } from '../../types';
-import { ALLIES } from '../../data/mockData';
+import { ALLIES } from '../../data/alliesData';
 import { StageDiscover } from './StageDiscover';
 import { StagePracticeGrade5 } from './StagePracticeGrade5';
 import { StagePracticeGrade8 } from './StagePracticeGrade8';

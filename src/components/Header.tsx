@@ -100,29 +100,29 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b-2 border-amber-200 shadow-xs transition-colors">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        {/* DESKTOP & TABLET VIEW (md:flex hidden): Spacious 1-Tier Header */}
-        <div className="hidden md:flex items-center justify-between h-18 lg:h-20 gap-2 lg:gap-4">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+        {/* DESKTOP & TABLET VIEW (md:flex hidden): Responsive 1-Tier Header with perfect Tablet support */}
+        <div className="hidden md:flex items-center justify-between h-16 lg:h-20 gap-1.5 lg:gap-3">
           {/* Logo & Playful Ant Brand */}
-          <div className="flex items-center gap-2 lg:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 lg:gap-3 shrink-0">
             <button
               onClick={() => {
                 audioService.playBoingPop();
                 onOpenAllies();
               }}
-              className="flex items-center gap-2 lg:gap-3 group text-left focus:outline-none rounded-2xl p-1 active:scale-95 transition-transform"
+              className="flex items-center gap-1.5 lg:gap-2.5 group text-left focus:outline-none rounded-2xl p-1 active:scale-95 transition-transform"
               title="Khám phá Kiến Con"
             >
-              <div className="w-10 h-10 lg:w-13 lg:h-13 rounded-2xl bg-gradient-to-tr from-amber-400 via-orange-400 to-amber-300 flex items-center justify-center text-white shadow-md shadow-amber-200 border-2 border-amber-200 group-hover:scale-110 group-hover:rotate-6 transition-all duration-200">
+              <div className="w-9 h-9 lg:w-12 lg:h-12 rounded-2xl bg-gradient-to-tr from-amber-400 via-orange-400 to-amber-300 flex items-center justify-center text-white shadow-md shadow-amber-200 border-2 border-amber-200 group-hover:scale-105 group-hover:rotate-6 transition-all duration-200 shrink-0">
                 <span className="text-xl lg:text-3xl animate-bounce-short">🐜</span>
               </div>
               <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-black text-lg lg:text-2xl tracking-tight text-amber-950 group-hover:text-amber-600 transition-colors">
+                <div className="flex items-center gap-1">
+                  <span className="font-black text-base lg:text-2xl tracking-tight text-amber-950 group-hover:text-amber-600 transition-colors">
                     KIẾN HỌC
                   </span>
                 </div>
-                <p className="text-[11px] lg:text-xs font-bold text-amber-700">
+                <p className="hidden xl:block text-[11px] lg:text-xs font-bold text-amber-700">
                   {user.grade === 5
                     ? '🎒 Kiến Con • Lớp 5'
                     : '🔬 Kiến Con • Lớp 8'}
@@ -131,73 +131,84 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Center: Big Chunky Profile Switcher (Lớp 5 vs Lớp 8) */}
-          <div className="flex items-center bg-amber-50 p-1 lg:p-1.5 rounded-2xl border-2 border-amber-200 shadow-inner gap-1 shrink-0">
-            <button
-              id="desktop-switch-grade-5"
-              onClick={() => {
-                audioService.playBoingPop();
-                onSwitchGrade(5);
-              }}
-              className={`flex items-center gap-1.5 px-2.5 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs sm:text-sm lg:text-base font-black transition-all ${
-                user.grade === 5
-                  ? 'bg-gradient-to-b from-amber-300 to-amber-400 text-amber-950 border-b-3 border-amber-600 shadow-sm scale-105'
-                  : 'text-stone-500 hover:text-stone-800 hover:bg-white/60'
-              }`}
+          {/* Center: Grade Display (Khi đăng nhập: Chỉ hiển thị Lớp đã chọn, ẩn các lớp khác. Khi là khách: Cho phép xem thử) */}
+          {isAuthenticated ? (
+            <div
+              id="desktop-locked-grade-badge"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-100 to-orange-100 px-2.5 py-1 lg:px-3.5 lg:py-1.5 rounded-2xl border-2 border-amber-300 shadow-xs shrink-0"
+              title={`Bạn đang học ${user.grade === 5 ? 'Khối Lớp 5' : 'Khối Lớp 8'}. Hệ thống chỉ hiển thị nội dung lớp học của bạn.`}
             >
-              <BookOpen className="w-4 h-4 text-amber-900" />
-              <span>Lớp 5</span>
-            </button>
+              <span className="text-base lg:text-lg">{user.grade === 5 ? '📐' : '🔬'}</span>
+              <div className="flex items-center gap-1">
+                <span className="hidden xl:inline text-[9px] font-black uppercase tracking-wider text-amber-800 bg-amber-200/80 px-1 py-0.5 rounded-md">
+                  LỚP ĐÃ CHỌN
+                </span>
+                <span className="text-xs lg:text-sm font-black text-amber-950">
+                  Lớp {user.grade}
+                </span>
+                <span className="hidden xl:inline text-xs text-amber-800 font-semibold">
+                  ({user.grade === 5 ? 'Tiểu Học' : 'THCS'})
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center bg-amber-50 p-1 rounded-2xl border-2 border-amber-200 shadow-inner gap-1 shrink-0">
+              <button
+                id="desktop-switch-grade-5"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  onSwitchGrade(5);
+                }}
+                className={`flex items-center gap-1 px-2 lg:px-3.5 py-1 lg:py-1.5 rounded-xl text-xs lg:text-sm font-black transition-all ${
+                  user.grade === 5
+                    ? 'bg-gradient-to-b from-amber-300 to-amber-400 text-amber-950 border-b-2 border-amber-600 shadow-xs scale-105'
+                    : 'text-stone-500 hover:text-stone-800 hover:bg-white/60'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5 text-amber-900" />
+                <span>Lớp 5</span>
+              </button>
 
-            <button
-              id="desktop-switch-grade-8"
-              onClick={() => {
-                audioService.playBoingPop();
-                onSwitchGrade(8);
-              }}
-              className={`flex items-center gap-1.5 px-2.5 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs sm:text-sm lg:text-base font-black transition-all ${
-                user.grade === 8
-                  ? 'bg-gradient-to-b from-sky-300 to-sky-400 text-sky-950 border-b-3 border-sky-600 shadow-sm scale-105'
-                  : 'text-stone-500 hover:text-stone-800 hover:bg-white/60'
-              }`}
-            >
-              <BookOpen className="w-4 h-4 text-sky-900" />
-              <span>Lớp 8</span>
-            </button>
-          </div>
+              <button
+                id="desktop-switch-grade-8"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  onSwitchGrade(8);
+                }}
+                className={`flex items-center gap-1 px-2 lg:px-3.5 py-1 lg:py-1.5 rounded-xl text-xs lg:text-sm font-black transition-all ${
+                  user.grade === 8
+                    ? 'bg-gradient-to-b from-sky-300 to-sky-400 text-sky-950 border-b-2 border-sky-600 shadow-xs scale-105'
+                    : 'text-stone-500 hover:text-stone-800 hover:bg-white/60'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5 text-sky-900" />
+                <span>Lớp 8</span>
+              </button>
+            </div>
+          )}
 
-          {/* Right Gamification Stats: Streak, Leaderboard, XP, Quests, Audio */}
-          <div className="flex items-center gap-1.5 lg:gap-2.5 shrink-0">
+          {/* Right Gamification Stats: Streak, Leaderboard, XP, Quests, Audio, Profile, Auth */}
+          <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 shrink-0">
             {/* Daily Learning Streak Counter with Fire Animation */}
             <div className="relative" ref={!showStreakPopover ? undefined : popoverRef}>
               <button
                 onClick={handleStreakClick}
-                className={`relative flex items-center gap-1.5 px-2.5 lg:px-3.5 py-1.5 lg:py-2 rounded-2xl border-2 font-black text-xs lg:text-sm transition-all select-none active:scale-95 ${
+                className={`relative flex items-center gap-1 px-2 lg:px-3 py-1 lg:py-1.5 rounded-2xl border-2 font-black text-xs lg:text-sm transition-all select-none active:scale-95 ${
                   isFireActive
-                    ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-red-500 text-white border-orange-400 shadow-lg shadow-orange-300 animate-fire-burst ring-3 ring-orange-300'
+                    ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-red-500 text-white border-orange-400 shadow-sm ring-2 ring-orange-300'
                     : 'bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-950'
                 }`}
                 title={`Chuỗi học tập liên tục: ${user.streakDays} ngày. Nhấn xem chi tiết!`}
               >
-                <div className="relative flex items-center justify-center">
-                  <Flame
-                    className={`w-4 h-4 lg:w-5 lg:h-5 transition-transform ${
-                      isFireActive
-                        ? 'text-yellow-200 fill-yellow-300 animate-flame-active'
-                        : 'text-orange-500 fill-orange-500 animate-pulse'
-                    }`}
-                  />
-                  {isFireActive && (
-                    <>
-                      <span className="absolute -top-2 -left-1 w-2 h-2 bg-yellow-300 rounded-full animate-ember-1 pointer-events-none" />
-                      <span className="absolute -top-3 right-0 w-2 h-2 bg-orange-300 rounded-full animate-ember-2 pointer-events-none" />
-                      <span className="absolute -top-2.5 left-1 w-1.5 h-1.5 bg-red-400 rounded-full animate-ember-3 pointer-events-none" />
-                    </>
-                  )}
-                </div>
-                <span className="font-black text-sm lg:text-base tracking-tight">
-                  {user.streakDays}d
-                </span>
+                <Flame
+                  className={`w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0 ${
+                    isFireActive
+                      ? 'text-yellow-200 fill-yellow-300 animate-flame-active'
+                      : 'text-orange-500 fill-orange-500'
+                  }`}
+                />
+                <span className="font-black tracking-tight">{user.streakDays}</span>
+                <span className="hidden xl:inline text-xs">ngày</span>
               </button>
 
               {/* Desktop Streak Dropdown Card */}
@@ -287,7 +298,7 @@ export const Header: React.FC<HeaderProps> = ({
                 audioService.playBoingPop();
                 onOpenLeaderboard();
               }}
-              className="flex items-center gap-1.5 px-2.5 lg:px-3.5 py-1.5 lg:py-2.5 rounded-2xl bg-gradient-to-b from-amber-300 to-amber-400 border-b-3 border-amber-600 text-amber-950 font-black text-xs lg:text-sm active:border-b-0 active:translate-y-1 shadow-xs hover:brightness-105 transition-all shrink-0"
+              className="flex items-center gap-1.5 p-1.5 lg:px-3 lg:py-2 rounded-2xl bg-gradient-to-b from-amber-300 to-amber-400 border-b-2 lg:border-b-3 border-amber-600 text-amber-950 font-black text-xs lg:text-sm active:border-b-0 active:translate-y-0.5 shadow-xs hover:brightness-105 transition-all shrink-0"
               title="Xem Bảng Xếp Hạng Thi Đua"
             >
               <Trophy className="w-4 h-4 lg:w-5 lg:h-5 text-amber-800 fill-amber-500 animate-wiggle shrink-0" />
@@ -301,20 +312,20 @@ export const Header: React.FC<HeaderProps> = ({
                 audioService.playBoingPop();
                 onOpenMastery();
               }}
-              className="flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-2xl bg-gradient-to-b from-purple-100 to-purple-200 border-2 border-purple-300 text-purple-950 font-black text-xs lg:text-sm hover:brightness-105 active:scale-95 transition-all shrink-0"
+              className="flex items-center gap-1 lg:gap-1.5 px-2 lg:px-2.5 py-1 lg:py-1.5 rounded-2xl bg-gradient-to-b from-purple-100 to-purple-200 border-2 border-purple-300 text-purple-950 font-black text-xs lg:text-sm hover:brightness-105 active:scale-95 transition-all shrink-0"
               title="Xem Bảng Năng Lực"
             >
               <span className="px-1.5 py-0.5 rounded-lg bg-purple-500 text-white text-[10px] lg:text-[11px] font-black">
                 Lv{user.level}
               </span>
-              <span className="font-bold text-purple-900">
+              <span className="font-bold text-purple-900 text-xs lg:text-sm">
                 {user.xp} XP
               </span>
-              <span className="hidden sm:inline">⭐</span>
+              <span className="hidden xl:inline">⭐</span>
             </button>
 
             {/* 5 Energy Leaves (Lá Sinh Mệnh) - Duolingo Inspired Health / Energy */}
-            <div className="relative" ref={leavesPopoverRef}>
+            <div className="relative hidden xl:block" ref={leavesPopoverRef}>
               <button
                 id="desktop-header-energy-leaves"
                 onClick={() => {
@@ -385,12 +396,12 @@ export const Header: React.FC<HeaderProps> = ({
                 audioService.playBoingPop();
                 onOpenQuests();
               }}
-              className="relative p-2 lg:p-2.5 rounded-2xl bg-gradient-to-b from-emerald-100 to-emerald-200 border-2 border-emerald-300 text-emerald-800 hover:brightness-105 active:scale-95 transition-all shrink-0"
+              className="relative p-1.5 lg:p-2 rounded-2xl bg-gradient-to-b from-emerald-100 to-emerald-200 border-2 border-emerald-300 text-emerald-800 hover:brightness-105 active:scale-95 transition-all shrink-0"
               title="Nhiệm vụ hàng ngày"
             >
               <CheckCircle2 className="w-4 h-4 lg:w-5 lg:h-5" />
               {unclaimedQuestsCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 border-2 border-white text-white text-[11px] font-black flex items-center justify-center animate-bounce">
+                <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 border-2 border-white text-white text-[10px] font-black flex items-center justify-center animate-bounce">
                   {unclaimedQuestsCount}
                 </span>
               )}
@@ -399,41 +410,41 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Sound Toggle */}
             <button
               onClick={handleToggleSound}
-              className="p-2 lg:p-2.5 rounded-2xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 active:scale-90 transition-all shrink-0"
+              className="p-1.5 lg:p-2 rounded-2xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 active:scale-90 transition-all shrink-0"
               title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
             >
               {isMuted ? <VolumeX className="w-4 h-4 text-stone-400" /> : <Volume2 className="w-4 h-4 text-amber-600" />}
             </button>
 
-            {/* Profile & Settings Button */}
+            {/* Profile & Settings Button (Guaranteed to be visible on Tablet & Desktop) */}
             <button
               id="desktop-header-profile"
               onClick={() => {
                 audioService.playBoingPop();
                 onOpenProfile();
               }}
-              className="flex items-center gap-1.5 lg:gap-2 pl-1.5 lg:pl-2 pr-2 lg:pr-3 py-1.5 rounded-2xl bg-white hover:bg-amber-50 border-2 border-amber-300 text-amber-950 font-black text-xs sm:text-sm active:scale-95 shadow-2xs transition-all shrink-0 relative"
+              className="flex items-center gap-1 lg:gap-1.5 p-1.5 lg:px-2.5 lg:py-1.5 rounded-2xl bg-white hover:bg-amber-50 border-2 border-amber-300 text-amber-950 font-black text-xs sm:text-sm active:scale-95 shadow-2xs transition-all shrink-0 relative"
               title="Quản lý hồ sơ, cài đặt & cơ sở dữ liệu Supabase"
             >
-              <div className="w-7 h-7 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-base shrink-0 relative">
+              <div className="w-6 h-6 lg:w-7 lg:h-7 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-sm lg:text-base shrink-0 relative">
                 {user.avatar || '🐜'}
                 <span
-                  className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white"
+                  className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"
                   title="Supabase Database Ready"
                 />
               </div>
               <div className="text-left hidden xl:block">
-                <div className="leading-tight truncate max-w-[100px] font-black text-amber-950">
-                  {user.name || user.nickname || 'Bạn Kiến'}
+                <div className="leading-tight truncate max-w-[90px] font-black text-amber-950">
+                  {user.nickname || user.name || 'Bạn Kiến'}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <Database className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <Settings className="w-4 h-4 text-amber-600 animate-spin-slow hover:text-amber-800 shrink-0" />
+                <Settings className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-amber-600 animate-spin-slow hover:text-amber-800 shrink-0" />
               </div>
             </button>
 
-            {/* Auth / Account Buttons (Sign In / Sign Up / Sign Out) */}
+            {/* Auth / Account Buttons (Sign In / Sign Up / Sign Out - Always visible on Tablet) */}
             {isAuthenticated ? (
               <button
                 id="desktop-header-signout"
@@ -441,7 +452,7 @@ export const Header: React.FC<HeaderProps> = ({
                   audioService.playBoingPop();
                   if (onOpenAuth) onOpenAuth('signout_confirm');
                 }}
-                className="p-2 lg:p-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 hover:text-rose-900 active:scale-95 transition-all shrink-0"
+                className="p-1.5 lg:p-2 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 hover:text-rose-900 active:scale-95 transition-all shrink-0"
                 title="Thoát tài khoản (Đăng xuất)"
               >
                 <LogOut className="w-4 h-4" />
@@ -453,12 +464,12 @@ export const Header: React.FC<HeaderProps> = ({
                   audioService.playBoingPop();
                   if (onOpenAuth) onOpenAuth('signup');
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl btn-ant-3d-amber text-amber-950 font-black text-xs hover:brightness-105 active:scale-95 transition-all shadow-xs shrink-0"
+                className="flex items-center gap-1 px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-2xl btn-ant-3d-amber text-amber-950 font-black text-xs hover:brightness-105 active:scale-95 transition-all shadow-xs shrink-0"
                 title="Tạo tài khoản nhận ngay +250 XP ban đầu"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                <span className="hidden xl:inline">Tạo tài khoản</span>
-                <span className="bg-amber-500/20 text-amber-900 px-1.5 py-0.5 rounded-md font-black text-[10px]">+250 XP</span>
+                <span className="hidden lg:inline">Đăng ký</span>
+                <span className="bg-amber-500/20 text-amber-900 px-1 py-0.5 rounded font-black text-[10px]">+250 XP</span>
               </button>
             )}
           </div>
@@ -595,40 +606,54 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Row 2: Unified Segmented Grade Switcher & Achievements */}
           <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-amber-100">
-            {/* Left: Segmented Grade Switcher */}
-            <div className="flex items-center bg-stone-100/90 p-0.5 rounded-xl border border-stone-200 gap-0.5 shrink-0">
-              <button
-                id="mobile-switch-grade-5"
-                onClick={() => {
-                  audioService.playBoingPop();
-                  onSwitchGrade(5);
-                }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
-                  user.grade === 5
-                    ? 'bg-amber-400 text-amber-950 shadow-xs border border-amber-500/40'
-                    : 'text-stone-500 hover:text-stone-800'
-                }`}
+            {/* Left: Grade Switcher (Khách) hoặc Locked Badge (Đã đăng nhập) */}
+            {isAuthenticated ? (
+              <div
+                id="mobile-locked-grade-badge"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 text-amber-950 font-black text-xs shrink-0 shadow-2xs"
+                title={`Bạn đang học ${user.grade === 5 ? 'Lớp 5' : 'Lớp 8'}`}
               >
-                <span>👦</span>
-                <span>Lớp 5</span>
-              </button>
+                <span>{user.grade === 5 ? '📐' : '🔬'}</span>
+                <span>{user.grade === 5 ? 'Lớp 5' : 'Lớp 8'}</span>
+                <span className="text-[9px] text-amber-800 bg-amber-200/80 px-1 py-0.5 rounded font-black uppercase">
+                  Đã chọn
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center bg-stone-100/90 p-0.5 rounded-xl border border-stone-200 gap-0.5 shrink-0">
+                <button
+                  id="mobile-switch-grade-5"
+                  onClick={() => {
+                    audioService.playBoingPop();
+                    onSwitchGrade(5);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
+                    user.grade === 5
+                      ? 'bg-amber-400 text-amber-950 shadow-xs border border-amber-500/40'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  <span>👦</span>
+                  <span>Lớp 5</span>
+                </button>
 
-              <button
-                id="mobile-switch-grade-8"
-                onClick={() => {
-                  audioService.playBoingPop();
-                  onSwitchGrade(8);
-                }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
-                  user.grade === 8
-                    ? 'bg-sky-400 text-sky-950 shadow-xs border border-sky-500/40'
-                    : 'text-stone-500 hover:text-stone-800'
-                }`}
-              >
-                <span>🧑‍🎓</span>
-                <span>Lớp 8</span>
-              </button>
-            </div>
+                <button
+                  id="mobile-switch-grade-8"
+                  onClick={() => {
+                    audioService.playBoingPop();
+                    onSwitchGrade(8);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
+                    user.grade === 8
+                      ? 'bg-sky-400 text-sky-950 shadow-xs border border-sky-500/40'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  <span>🧑‍🎓</span>
+                  <span>Lớp 8</span>
+                </button>
+              </div>
+            )}
 
             {/* Right: Leaderboard & Level */}
             <div className="flex items-center gap-1 shrink-0">

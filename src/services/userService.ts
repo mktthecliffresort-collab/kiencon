@@ -6,6 +6,7 @@ export const userService = {
     id?: string;
     name: string;
     nickname?: string;
+    birthDate?: string;
     email?: string;
     grade: GradeLevel;
     avatar?: string;
@@ -21,6 +22,7 @@ export const userService = {
       id: profileData.id || `user_${Date.now()}`,
       name: profileData.name,
       nickname: profileData.nickname || profileData.name,
+      birthDate: profileData.birthDate || baseProfile.birthDate || '2014-08-15',
       email: profileData.email || baseProfile.email,
       grade: profileData.grade,
       avatar: profileData.avatar || baseProfile.avatar || '🐜',

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lesson, Subject, UserProfile, KHTNDomain } from '../types';
-import { ALLIES } from '../data/mockData';
+import { ALLIES } from '../data/alliesData';
 import { Clock, Award, Play, CheckCircle, Sparkles, BookOpen, Compass, List } from 'lucide-react';
 import { audioService } from '../services/audioService';
 import { DragScrollContainer } from './DragScrollContainer';

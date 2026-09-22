@@ -4,6 +4,7 @@ import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import dotenv from "dotenv";
 import { Agent, setGlobalDispatcher } from "undici";
 import { getSocraticTutorGuidance } from "./server/services/geminiTutor";
+import { sendOtpEmail, verifyOtpCode } from "./server/services/emailOtpService";
 
 dotenv.config();
 
@@ -344,6 +345,51 @@ app.post("/api/gemini/socratic-tutor", async (req, res) => {
       responseMessage: "Chú Kiến đang kiểm tra lại bài học nè, con hãy thử đọc kỹ lại đề bài một xíu nha!",
       followUpQuestion: "Con thấy điểm gì đặc biệt nhất trong câu hỏi này?",
       isLocalFallback: true,
+    });
+  }
+});
+
+// Email OTP Verification Endpoints
+app.post("/api/auth/send-otp", async (req, res) => {
+  try {
+    const { email, fullName, code, grade, appUrl: clientAppUrl } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email là bắt buộc." });
+    }
+    const origin = clientAppUrl || (req.headers.origin as string) || (req.headers.referer ? new URL(req.headers.referer as string).origin : '') || process.env.APP_URL || 'http://localhost:3000';
+    const otpCode = code || Math.floor(100000 + Math.random() * 900000).toString();
+    const result = await sendOtpEmail({
+      email,
+      fullName: fullName || "Học sinh Kiến",
+      code: otpCode,
+      grade: Number(grade) || 5,
+      appUrl: origin,
+    });
+    return res.json(result);
+  } catch (error: any) {
+    console.error("Lỗi gửi OTP:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Không thể gửi mã OTP qua email lúc này. Vui lòng thử lại sau.",
+      error: error?.message,
+    });
+  }
+});
+
+app.post("/api/auth/verify-otp", (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ success: false, message: "Email và mã OTP là bắt buộc." });
+    }
+    const result = verifyOtpCode(email, code);
+    return res.json(result);
+  } catch (error: any) {
+    console.error("Lỗi xác thực OTP:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi xác thực OTP trên hệ thống.",
+      error: error?.message,
     });
   }
 });

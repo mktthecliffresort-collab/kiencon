@@ -12,6 +12,7 @@ export interface AuthSessionData {
   email: string;
   fullName: string;
   nickname?: string;
+  birthDate?: string;
   grade: GradeLevel;
   avatar: string;
   xp: number;
@@ -22,6 +23,7 @@ export interface AuthSessionData {
 export interface SignUpParams {
   fullName: string;
   nickname?: string;
+  birthDate?: string;
   email: string;
   password?: string;
   grade: GradeLevel;
@@ -37,6 +39,7 @@ export interface PendingVerification {
   email: string;
   fullName: string;
   nickname?: string;
+  birthDate?: string;
   password?: string;
   grade: GradeLevel;
   avatar: string;
@@ -115,7 +118,7 @@ class AuthService {
     message: string;
     error?: string;
   }> {
-    const { fullName, nickname, email, password, grade, avatar = '🐜' } = params;
+    const { fullName, nickname, birthDate = '2014-08-15', email, password, grade, avatar = '🐜' } = params;
 
     // Validate email
     const trimmedEmail = email.trim().toLowerCase();
@@ -145,6 +148,7 @@ class AuthService {
       email: trimmedEmail,
       fullName: fullName.trim(),
       nickname: nickname?.trim() || fullName.trim(),
+      birthDate,
       password,
       grade,
       avatar,
@@ -158,18 +162,45 @@ class AuthService {
       // ignore
     }
 
+    // 1. Gửi OTP qua server-side email endpoint (sử dụng tài khoản Gmail máy chủ / test an toàn)
+    let emailSent = false;
+    let serverMessage = '';
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+    try {
+      const otpRes = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          fullName: fullName.trim(),
+          code: demoCode,
+          grade,
+          appUrl: currentOrigin,
+        }),
+      });
+      if (otpRes.ok) {
+        const otpData = await otpRes.json();
+        emailSent = Boolean(otpData.emailSent);
+        serverMessage = otpData.message || '';
+      }
+    } catch (apiErr) {
+      console.warn('Gửi qua /api/auth/send-otp:', apiErr);
+    }
+
     const client = getSupabaseClient();
 
-    // Nếu đã cấu hình Supabase, thử đăng ký qua Supabase Auth
+    // 2. Thử đăng ký qua Supabase Auth nếu có cấu hình
     if (client && isSupabaseConfigured()) {
       try {
         const { data: authData, error: authError } = await client.auth.signUp({
           email: trimmedEmail,
           password,
           options: {
+            emailRedirectTo: currentOrigin ? `${currentOrigin}?verify_email=${encodeURIComponent(trimmedEmail)}&code=${encodeURIComponent(demoCode)}` : undefined,
             data: {
               full_name: fullName.trim(),
               nickname: nickname?.trim() || fullName.trim(),
+              birth_date: birthDate,
               current_grade: grade,
               avatar,
             },
@@ -188,7 +219,7 @@ class AuthService {
           }
           console.warn('Lỗi Supabase Auth, chuyển sang chế độ xác thực linh hoạt:', authError.message);
         } else if (authData.user) {
-          // Lưu dữ liệu vào public.users nếu có quyền ghi
+          // Lưu dữ liệu ưu tiên vào public.users
           try {
             await client.from('users').upsert({
               id: authData.user.id,
@@ -201,6 +232,7 @@ class AuthService {
               streak_days: 1,
               level: 1,
               settings: {
+                birthDate,
                 mode: 'light',
                 accentColor: 'amber',
                 soundEnabled: true,
@@ -221,7 +253,7 @@ class AuthService {
       success: true,
       requiresVerification: true,
       verificationCode: demoCode,
-      message: `Mã xác nhận gồm 6 chữ số đã được chuẩn bị cho email ${trimmedEmail}.`,
+      message: serverMessage || `Mã OTP gồm 6 chữ số đã được gửi đến email ${trimmedEmail}.`,
     };
   }
 
@@ -258,7 +290,25 @@ class AuthService {
     const client = getSupabaseClient();
     let authUserId: string | null = null;
 
-    // Thử verify qua Supabase OTP nếu có kết nối
+    // 1. Thử verify qua server API endpoint trước
+    let serverVerified = false;
+    try {
+      const serverRes = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, code: trimmedCode }),
+      });
+      if (serverRes.ok) {
+        const serverData = await serverRes.json();
+        if (serverData.success) {
+          serverVerified = true;
+        }
+      }
+    } catch (err) {
+      console.warn('Lỗi gọi /api/auth/verify-otp:', err);
+    }
+
+    // 2. Thử verify qua Supabase OTP nếu có kết nối
     if (client && isSupabaseConfigured()) {
       try {
         const { data, error } = await client.auth.verifyOtp({
@@ -274,8 +324,9 @@ class AuthService {
       }
     }
 
-    // Kiểm tra mã: chấp nhận nếu mã khớp với pending code HOẶC khớp 123456 HOẶC Supabase OTP thành công
+    // Kiểm tra mã: chấp nhận nếu server API verify OK HOẶC khớp pending code HOẶC khớp 123456 HOẶC Supabase OTP thành công
     const isCodeValid =
+      serverVerified ||
       (pending && pending.code === trimmedCode) ||
       trimmedCode === '123456' ||
       Boolean(authUserId);
@@ -283,23 +334,44 @@ class AuthService {
     if (!isCodeValid) {
       return {
         success: false,
-        message: 'Mã xác thực không chính xác hoặc đã hết hạn. Vui lòng kiểm tra lại!',
+        message: 'Mã xác thực OTP không chính xác hoặc đã hết hạn. Vui lòng kiểm tra lại!',
         error: 'INVALID_CODE',
       };
     }
 
     // Xác minh thành công! Tạo UserProfile và tặng điểm XP ban đầu
     const userId = authUserId || `user_${Date.now()}`;
-    const fullName = pending?.fullName || 'Học sinh Kiến';
-    const nickname = pending?.nickname || fullName;
-    const grade = pending?.grade || 5;
-    const avatar = pending?.avatar || '🐜';
+
+    // Khôi phục thông tin từ database nếu người dùng mở liên kết trên tab/thiết bị khác
+    let dbUser: Record<string, unknown> | null = null;
+    if (!pending && client && isSupabaseConfigured()) {
+      try {
+        const { data } = await client
+          .from('users')
+          .select('*')
+          .or(`id.eq.${userId},auth_id.eq.${userId}`)
+          .maybeSingle();
+        if (data) {
+          dbUser = data as Record<string, unknown>;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const fullName = pending?.fullName || (dbUser?.full_name as string) || 'Học sinh Kiến';
+    const nickname = pending?.nickname || (dbUser?.nickname as string) || fullName;
+    const dbSettings = (dbUser?.settings as Record<string, unknown>) || {};
+    const birthDate = pending?.birthDate || (dbSettings.birthDate as string) || '2014-08-15';
+    const grade = (pending?.grade || (dbUser?.current_grade as number) || 5) as GradeLevel;
+    const avatar = pending?.avatar || (dbUser?.avatar as string) || '🐜';
 
     // Tạo UserProfile hoàn chỉnh với phần thưởng +250 XP
     const newUserProfile: UserProfile = {
       id: userId,
       name: fullName,
       nickname,
+      birthDate,
       email: trimmedEmail,
       grade,
       avatar,
@@ -319,7 +391,7 @@ class AuthService {
       },
     };
 
-    // Lưu vào Supabase Database nếu có kết nối
+    // ƯU TIÊN LƯU VÀO SUPABASE DATABASE TRƯỚC
     if (client && isSupabaseConfigured()) {
       try {
         await client.from('users').upsert({
@@ -332,15 +404,14 @@ class AuthService {
           total_xp: INITIAL_WELCOME_XP,
           streak_days: 1,
           level: 1,
-          settings: newUserProfile.themeSettings
-            ? {
-                mode: newUserProfile.themeSettings.mode,
-                accentColor: newUserProfile.themeSettings.accentColor,
-                soundEnabled: newUserProfile.themeSettings.soundEnabled,
-                soundVolume: newUserProfile.themeSettings.soundVolume,
-                ambientChime: newUserProfile.themeSettings.ambientChime,
-              }
-            : {},
+          settings: {
+            birthDate,
+            mode: newUserProfile.themeSettings?.mode || 'light',
+            accentColor: newUserProfile.themeSettings?.accentColor || 'amber',
+            soundEnabled: newUserProfile.themeSettings?.soundEnabled ?? true,
+            soundVolume: newUserProfile.themeSettings?.soundVolume ?? 80,
+            ambientChime: newUserProfile.themeSettings?.ambientChime ?? true,
+          },
           updated_at: new Date().toISOString(),
         });
       } catch (err) {
@@ -348,13 +419,14 @@ class AuthService {
       }
     }
 
-    // Khởi tạo hồ sơ qua userService.createProfile để đồng bộ hoàn chỉnh
+    // Khởi tạo hồ sơ qua userService.createProfile để đồng bộ hoàn chỉnh cả hai tầng
     let finalProfile: UserProfile = newUserProfile;
     try {
       finalProfile = await userService.createProfile({
         id: userId,
         name: fullName,
         nickname,
+        birthDate,
         email: trimmedEmail,
         grade,
         avatar,
@@ -365,12 +437,13 @@ class AuthService {
       console.warn('Gọi userService.createProfile:', e);
     }
 
-    // Lưu session
+    // Lưu session tự động đăng nhập
     const sessionData: AuthSessionData = {
       id: userId,
       email: trimmedEmail,
       fullName,
       nickname,
+      birthDate,
       grade,
       avatar,
       xp: INITIAL_WELCOME_XP,
@@ -647,6 +720,120 @@ class AuthService {
       this.currentSession.xp = xp;
       this.saveSession(this.currentSession);
     }
+  }
+
+  // ============================================================================
+  // 6. KIỂM TRA & ĐỒNG BỘ DỮ LIỆU USER TỪ SUPABASE KHI ỨNG DỤNG RELOAD
+  // (Ưu tiên nạp từ Supabase, sau đó mới fallback vào LocalStorage)
+  // ============================================================================
+  public async fetchCurrentUserFromSupabase(): Promise<UserProfile | null> {
+    const client = getSupabaseClient();
+    const session = this.currentSession;
+
+    if (!client || !isSupabaseConfigured()) {
+      return null;
+    }
+
+    try {
+      // 1. Lấy thông tin user hiện tại từ Supabase Auth
+      let authUser = null;
+      try {
+        const { data } = await client.auth.getUser();
+        authUser = data.user;
+      } catch {
+        // ignore
+      }
+
+      const targetId = authUser?.id || session?.id;
+      const targetEmail = authUser?.email || session?.email;
+
+      if (!targetId && !targetEmail) {
+        return null;
+      }
+
+      // 2. Truy vấn trực tiếp từ bảng public.users
+      let query = client.from('users').select('*');
+      if (targetId) {
+        query = query.or(`auth_id.eq.${targetId},id.eq.${targetId}`);
+      } else if (session?.grade) {
+        query = query.eq('current_grade', session.grade).order('updated_at', { ascending: false }).limit(1);
+      } else {
+        query = query.order('updated_at', { ascending: false }).limit(1);
+      }
+
+      const { data: dbUser, error } = await query.maybeSingle();
+
+      if (error) {
+        console.warn('Lỗi kiểm tra user từ Supabase khi reload:', error.message);
+        return null;
+      }
+
+      if (dbUser) {
+        const userSettings = (dbUser.settings && typeof dbUser.settings === 'object' && !Array.isArray(dbUser.settings)
+          ? (dbUser.settings as Record<string, unknown>)
+          : {}) as Record<string, unknown>;
+
+        const grade = (Number(dbUser.current_grade) === 8 ? 8 : 5) as GradeLevel;
+        const fullName = dbUser.full_name || session?.fullName || 'Học sinh Kiến';
+        const nickname = dbUser.nickname || session?.nickname || fullName;
+        const birthDate = (userSettings.birthDate as string) || session?.birthDate || '2014-08-15';
+        const avatar = dbUser.avatar || session?.avatar || '🐜';
+        const totalXp = Number(dbUser.total_xp) || session?.xp || INITIAL_WELCOME_XP;
+        const streakDays = Number(dbUser.streak_days) || 1;
+        const level = Number(dbUser.level) || 1;
+
+        const syncedProfile: UserProfile = {
+          id: dbUser.id || targetId || `user_${Date.now()}`,
+          name: fullName,
+          nickname,
+          birthDate,
+          email: targetEmail || undefined,
+          grade,
+          avatar,
+          xp: totalXp,
+          level,
+          streakDays,
+          lastActiveDate: new Date().toISOString().split('T')[0],
+          completedLessons: Array.isArray(userSettings.completedLessons) ? (userSettings.completedLessons as string[]) : [],
+          subjectMastery: typeof userSettings.subjectMastery === 'object' && userSettings.subjectMastery !== null ? (userSettings.subjectMastery as Record<string, number>) : {},
+          inventory: Array.isArray(userSettings.inventory) ? (userSettings.inventory as string[]) : ['badge_welcome_ant'],
+          themeSettings: {
+            mode: (userSettings.mode as 'light' | 'soft' | 'warm') || 'light',
+            accentColor: (userSettings.accentColor as 'amber' | 'sky' | 'emerald' | 'purple' | 'rose') || 'amber',
+            soundEnabled: userSettings.soundEnabled !== undefined ? Boolean(userSettings.soundEnabled) : true,
+            soundVolume: typeof userSettings.soundVolume === 'number' ? userSettings.soundVolume : 80,
+            ambientChime: userSettings.ambientChime !== undefined ? Boolean(userSettings.ambientChime) : true,
+          },
+        };
+
+        // Cập nhật lại session
+        this.saveSession({
+          id: syncedProfile.id,
+          email: targetEmail || '',
+          fullName,
+          nickname,
+          birthDate,
+          grade,
+          avatar,
+          xp: totalXp,
+          isVerified: true,
+        });
+
+        // Đồng bộ đè vào LocalStorage cache
+        try {
+          localStorage.setItem(`kienhoc_user_v1_${grade}`, JSON.stringify(syncedProfile));
+        } catch {
+          // ignore
+        }
+
+        console.log(`[Supabase Auth] Đã load thành công thông tin user "${fullName}" từ Supabase.`);
+        return syncedProfile;
+      }
+    } catch (err) {
+      console.warn('Exception khi nạp user từ Supabase:', err);
+    }
+
+    return null;
   }
 }
 

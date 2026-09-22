@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Gift,
   Star,
+  Calendar,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -62,6 +63,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Sign In / Sign Up Form States
   const [fullName, setFullName] = useState<string>('');
   const [nickname, setNickname] = useState<string>('');
+  const [birthDate, setBirthDate] = useState<string>(currentGrade === 8 ? '2011-05-20' : '2014-08-15');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -153,20 +155,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     try {
-      // Ensure the grade choice ('Lớp 5' or 'Lớp 8') is captured and passed
-      // to userService.createProfile when the account is initialized in Supabase
+      // Đảm bảo thông tin học sinh (Tên, Biệt danh, Ngày sinh, Email, Lớp, Avatar)
+      // được lưu trên toàn bộ database: cả Local lẫn Supabase (ưu tiên Supabase)
       await userService.createProfile({
         name: fullName.trim(),
         nickname: nickname.trim() || fullName.trim(),
+        birthDate: birthDate || '2014-08-15',
         email: email.trim().toLowerCase(),
         grade: selectedGrade,
         avatar: selectedAvatar,
-        xp: 50,
+        xp: INITIAL_WELCOME_XP,
       });
 
       const result = await authService.signUp({
         fullName,
         nickname: nickname.trim() || fullName.trim(),
+        birthDate: birthDate || '2014-08-15',
         email,
         password,
         grade: selectedGrade,
@@ -179,7 +183,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setDemoCodeGiven(result.verificationCode);
         }
         setResendCooldown(30);
-        // Display visual state for 'Email Verification Pending'
+        // Hiển thị giao diện Chờ xác thực OTP qua email
         setMode('verification_pending');
       } else {
         setErrorMessage(result.message || 'Đăng ký không thành công.');
@@ -191,7 +195,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // 3. Handle Verify Email Code
+  // 3. Handle Verify Email Code -> Tự động login ngay sau khi xác minh thành công!
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -211,9 +215,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         audioService.playCelebrationBurst();
         fireGrandCelebration();
         setWelcomeUser(result.user);
-        setToastMessage('Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
+        setToastMessage(`Chào mừng ${result.user.name} gia nhập Vương quốc Kiến! +${INITIAL_WELCOME_XP} XP thưởng khởi đầu!`);
+        
+        // TỰ ĐỘNG LOGIN VÀO TÀI KHOẢN NGAY LẬP TỨC
+        onAuthSuccess(result.user, `Chào mừng ${result.user.name} gia nhập Vương quốc Kiến! +${INITIAL_WELCOME_XP} XP thưởng khởi đầu!`);
+        
+        // Cố định lớp học đã chọn (các lớp khác sẽ tự động được ẩn đi)
+        if (onSwitchGrade && result.user.grade !== currentGrade) {
+          onSwitchGrade(result.user.grade);
+        }
+
         setMode('welcome');
-        onAuthSuccess(result.user, 'Chào mừng bạn đến với Kiến Học! +50 XP chào mừng!');
       } else {
         audioService.playClick();
         setErrorMessage(result.message || 'Mã xác thực không hợp lệ.');
@@ -448,9 +460,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* ========================================================================= */}
           {mode === 'signup' && (
             <form onSubmit={handleSignUp} className="space-y-3.5">
-              {/* Họ tên & Biệt danh */}
+              {/* Họ tên & Biệt danh & Ngày tháng năm sinh */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-stone-700 mb-1">
                     Họ và tên học sinh <span className="text-rose-500">*</span>
                   </label>
@@ -479,14 +491,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="w-full px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-amber-500 text-xs font-semibold text-stone-900 outline-none"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Ngày tháng năm sinh <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Calendar className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      required
+                      value={birthDate}
+                      onChange={(e) => setBirthDate(e.target.value)}
+                      max={new Date().toISOString().split('T')[0]}
+                      className="w-full pl-8 pr-2.5 py-2 rounded-xl border-2 border-stone-200 focus:border-amber-500 text-xs font-semibold text-stone-900 outline-none"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Chọn Lớp Học Phù Hợp: Radio Button Group for 'Lớp 5' or 'Lớp 8' */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center justify-between">
                   <span>Chọn Lớp Học <span className="text-rose-500">*</span></span>
-                  <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full">
-                    Có thể chuyển đổi bất kỳ lúc nào
+                  <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                    Chỉ hiển thị riêng Lớp bạn đã chọn
                   </span>
                 </label>
 

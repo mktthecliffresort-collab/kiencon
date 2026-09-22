@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Lesson, Subject, UserProfile, KHTNDomain } from '../types';
-import { ALLIES } from '../data/mockData';
+import { ALLIES } from '../data/alliesData';
 import { 
   Sparkles, 
   Lock, 
