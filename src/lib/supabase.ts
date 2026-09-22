@@ -2,23 +2,88 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
 
 // Đọc thông tin kết nối Supabase từ biến môi trường (hỗ trợ cả Vite client và Node.js server)
-const supabaseUrl: string =
-  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_URL) ||
-  (typeof process !== 'undefined' && process.env && process.env.VITE_SUPABASE_URL) ||
-  '';
-const supabaseAnonKey: string =
-  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) ||
-  (typeof process !== 'undefined' && process.env && process.env.VITE_SUPABASE_ANON_KEY) ||
-  '';
+const getEnvUrl = (): string => {
+  const envUrl =
+    (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL)) ||
+    (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)) ||
+    '';
+  if (envUrl) return envUrl;
+
+  // Fallback to in-app custom storage if user entered directly in Debug/CSDL tab
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const stored = localStorage.getItem('kienhoc_custom_supabase_url');
+      if (stored) return stored.trim();
+    } catch {
+      // ignore
+    }
+  }
+  return '';
+};
+
+const getEnvKey = (): string => {
+  const envKey =
+    (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY)) ||
+    (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)) ||
+    '';
+  if (envKey) return envKey;
+
+  // Fallback to in-app custom storage
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const stored = localStorage.getItem('kienhoc_custom_supabase_key');
+      if (stored) return stored.trim();
+    } catch {
+      // ignore
+    }
+  }
+  return '';
+};
 
 // Kiểm tra xem đã cung cấp credentials Supabase chưa
 export const isSupabaseConfigured = (): boolean => {
+  const url = getEnvUrl();
+  const key = getEnvKey();
   return Boolean(
-    supabaseUrl &&
-    supabaseAnonKey &&
-    supabaseUrl.startsWith('https://') &&
-    supabaseAnonKey.length > 20
+    url &&
+    key &&
+    url.startsWith('https://') &&
+    key.length > 20
   );
+};
+
+export const getSupabaseConfigInfo = () => {
+  const url = getEnvUrl();
+  const key = getEnvKey();
+  const isEnv = Boolean(
+    (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL)) ||
+    (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL))
+  );
+
+  return {
+    isConfigured: isSupabaseConfigured(),
+    url: url || 'Chưa thiết lập',
+    maskedUrl: url ? url.replace(/^https?:\/\//, '').split('.')[0] + '.supabase.co' : 'Chưa thiết lập',
+    keyConfigured: Boolean(key && key.length > 20),
+    keyLength: key ? key.length : 0,
+    source: isEnv ? 'Biến môi trường Vercel (VITE_SUPABASE_URL)' : (url ? 'Cấu hình thủ công trong ứng dụng' : 'Chưa cấu hình'),
+  };
+};
+
+export const setCustomSupabaseConfig = (url: string, key: string) => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    localStorage.setItem('kienhoc_custom_supabase_url', url.trim());
+    localStorage.setItem('kienhoc_custom_supabase_key', key.trim());
+    clientInstance = null; // reset client instance
+  }
+};
+
+export const clearCustomSupabaseConfig = () => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    localStorage.removeItem('kienhoc_custom_supabase_url');
+    localStorage.removeItem('kienhoc_custom_supabase_key');
+    clientInstance = null;
+  }
 };
 
 // Khởi tạo Supabase Client (singleton có type Database)
@@ -30,7 +95,9 @@ export const getSupabaseClient = (): SupabaseClient<Database> | null => {
   }
   if (!clientInstance) {
     try {
-      clientInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      const url = getEnvUrl();
+      const key = getEnvKey();
+      clientInstance = createClient<Database>(url, key, {
         auth: {
           persistSession: true, // Bắt buộc cho Offline-first
           autoRefreshToken: true,

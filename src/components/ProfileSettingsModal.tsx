@@ -36,6 +36,7 @@ interface ProfileSettingsModalProps {
   onOpenAuth?: (mode?: 'signin' | 'signup' | 'signout_confirm') => void;
   isAuthenticated?: boolean;
   onOpenAdmin?: () => void;
+  onOpenDebug?: () => void;
 }
 
 const AVATAR_OPTIONS = [
@@ -65,6 +66,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   onOpenAuth,
   isAuthenticated = false,
   onOpenAdmin,
+  onOpenDebug,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'settings' | 'database'>('profile');
 
@@ -784,6 +786,19 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     <RefreshCw className={`w-3.5 h-3.5 ${isSyncingDb ? 'animate-spin' : ''}`} />
                     {isSyncingDb ? 'Đang Đồng Bộ...' : 'Đồng Bộ Dữ Liệu Ngay'}
                   </button>
+
+                  {onOpenDebug && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenDebug();
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
+                    >
+                      <span>🛠️ Chẩn Đoán & Logs Production</span>
+                    </button>
+                  )}
                 </div>
 
                 {syncMessage && (

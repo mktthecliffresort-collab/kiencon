@@ -16,6 +16,7 @@ import { LeaderboardModal } from './components/LeaderboardModal';
 import { ProfileSettingsModal } from './components/ProfileSettingsModal';
 import { AdminPortalModal } from './components/Admin/AdminPortalModal';
 import { AuthModal } from './components/AuthModal';
+import { ProductionDebugModal } from './components/ProductionDebugModal';
 import { authService } from './services/authService';
 import { Grade5MathReviewHub } from './components/Grade5MathReview/Grade5MathReviewHub';
 import { DragScrollContainer } from './components/DragScrollContainer';
@@ -42,6 +43,7 @@ export default function App() {
   const [leaderboardModalOpen, setLeaderboardModalOpen] = useState<boolean>(false);
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
   const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
+  const [debugModalOpen, setDebugModalOpen] = useState<boolean>(false);
 
   // Account Authentication Modal & Toast
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
@@ -828,6 +830,7 @@ export default function App() {
         onSaveProfile={handleSaveProfile}
         onOpenAuth={handleOpenAuth}
         onOpenAdmin={() => setAdminModalOpen(true)}
+        onOpenDebug={() => setDebugModalOpen(true)}
         isAuthenticated={isAuthenticated}
       />
 
@@ -856,7 +859,28 @@ export default function App() {
         currentUser={user}
         currentGrade={currentGrade}
         onSwitchGrade={handleSwitchGrade}
+        onOpenDebug={() => setDebugModalOpen(true)}
       />
+
+      {/* Production Diagnostics, SMTP Health & Live System Logs Modal */}
+      <ProductionDebugModal
+        isOpen={debugModalOpen}
+        onClose={() => setDebugModalOpen(false)}
+      />
+
+      {/* Floating Production Diagnostics Button (Direct click on Vercel) */}
+      <button
+        id="floating-production-debug-btn"
+        onClick={() => {
+          audioService.playBoingPop();
+          setDebugModalOpen(true);
+        }}
+        className="fixed bottom-3 right-3 z-40 bg-stone-900/90 hover:bg-stone-900 text-amber-300 hover:text-amber-200 px-3 py-1.5 rounded-full shadow-xl border-2 border-amber-400/80 text-xs font-black flex items-center gap-1.5 backdrop-blur-md hover:scale-105 active:scale-95 transition-all group"
+        title="Trung tâm chẩn đoán lỗi Production Vercel / SMTP / Supabase"
+      >
+        <span className="text-sm group-hover:rotate-12 transition-transform">🛠️</span>
+        <span className="hidden sm:inline">Chẩn Đoán Production</span>
+      </button>
 
       {/* Welcome & XP Bonus Notification Toast */}
       <AnimatePresence>

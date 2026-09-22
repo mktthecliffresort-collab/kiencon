@@ -2,6 +2,7 @@ import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
 import { UserProfile, GradeLevel } from '../types';
 import { INITIAL_USER_GRADE_5, INITIAL_USER_GRADE_8 } from '../data/mockData';
 import { userService } from './userService';
+import { debugLogger } from './debugLogger';
 
 export const INITIAL_WELCOME_XP = 250; // Điểm XP tặng thưởng ban đầu khi tạo tài khoản thành công
 const AUTH_SESSION_KEY = 'kienhoc_auth_session_v2';
@@ -179,11 +180,21 @@ class AuthService {
       // ignore
     }
 
+    debugLogger.log('AUTH', `Bắt đầu đăng ký học sinh: ${fullName.trim()} (${trimmedEmail})`, {
+      grade,
+      code: demoCode,
+    });
+
     // 1. Gửi OTP qua server-side email endpoint (sử dụng tài khoản Gmail máy chủ / test an toàn)
     let emailSent = false;
     let serverMessage = '';
     const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
     try {
+      debugLogger.log('API', 'Gửi request tới /api/auth/send-otp', {
+        email: trimmedEmail,
+        appUrl: currentOrigin,
+      });
+
       const otpRes = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,20 +206,30 @@ class AuthService {
           appUrl: currentOrigin,
         }),
       });
+
       if (otpRes.ok) {
         const otpData = await otpRes.json();
         emailSent = Boolean(otpData.emailSent);
         serverMessage = otpData.message || '';
+        debugLogger.success('API', `Phản hồi từ /api/auth/send-otp (emailSent=${emailSent})`, otpData);
+      } else {
+        const errText = await otpRes.text();
+        debugLogger.error('API', `Lỗi HTTP ${otpRes.status} khi gọi /api/auth/send-otp`, errText);
       }
-    } catch (apiErr) {
+    } catch (apiErr: any) {
+      debugLogger.error('API', 'Không thể kết nối /api/auth/send-otp (Network Error)', apiErr?.message);
       console.warn('Gửi qua /api/auth/send-otp:', apiErr);
     }
 
     const client = getSupabaseClient();
+    const isConfigured = isSupabaseConfigured();
+
+    debugLogger.log('SUPABASE', `Trạng thái Supabase: ${isConfigured ? 'ĐÃ CẤU HÌNH' : 'CHƯA CẤU HÌNH'}`);
 
     // 2. Thử đăng ký qua Supabase Auth nếu có cấu hình
-    if (client && isSupabaseConfigured()) {
+    if (client && isConfigured) {
       try {
+        debugLogger.log('SUPABASE', 'Bắt đầu gọi client.auth.signUp()', { email: trimmedEmail });
         const { data: authData, error: authError } = await client.auth.signUp({
           email: trimmedEmail,
           password,
@@ -225,6 +246,7 @@ class AuthService {
         });
 
         if (authError) {
+          debugLogger.warn('SUPABASE', `Supabase Auth thông báo: ${authError.message}`, authError);
           // Nếu email đã tồn tại
           if (authError.message.includes('already registered') || authError.status === 400) {
             return {
@@ -234,11 +256,11 @@ class AuthService {
               error: 'EMAIL_EXISTS',
             };
           }
-          console.warn('Lỗi Supabase Auth, chuyển sang chế độ xác thực linh hoạt:', authError.message);
         } else if (authData.user) {
+          debugLogger.success('SUPABASE', `Tạo tài khoản Auth Supabase thành công (UID: ${authData.user.id})`);
           // Lưu dữ liệu ưu tiên vào public.users
           try {
-            await client.from('users').upsert({
+            const { error: upsertErr } = await client.from('users').upsert({
               id: authData.user.id,
               auth_id: authData.user.id,
               full_name: fullName.trim(),
@@ -257,13 +279,20 @@ class AuthService {
                 ambientChime: true,
               },
             });
-          } catch (insertErr) {
-            console.warn('Ghi vào public.users tiếp tục sau khi verify:', insertErr);
+            if (upsertErr) {
+              debugLogger.error('SUPABASE', `Lỗi upsert vào bảng public.users: ${upsertErr.message}`, upsertErr);
+            } else {
+              debugLogger.success('SUPABASE', 'Lưu thành công hồ sơ vào bảng public.users!');
+            }
+          } catch (insertErr: any) {
+            debugLogger.error('SUPABASE', `Lỗi kết nối khi lưu public.users: ${insertErr?.message}`);
           }
         }
-      } catch (e) {
-        console.warn('Không thể kết nối Supabase Auth, tiếp tục với mã xác thực nội bộ:', e);
+      } catch (err: any) {
+        debugLogger.error('SUPABASE', `Ngoại lệ Supabase Auth: ${err?.message}`);
       }
+    } else {
+      debugLogger.warn('SUPABASE', 'Bỏ qua ghi Supabase vì chưa có VITE_SUPABASE_URL hoặc VITE_SUPABASE_ANON_KEY trên Vercel.');
     }
 
     return {
@@ -290,6 +319,8 @@ class AuthService {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedCode = code.trim();
 
+    debugLogger.log('AUTH', `Bắt đầu xác thực mã OTP cho: ${trimmedEmail}`, { code: trimmedCode });
+
     // Đọc thông tin chờ xác minh
     let pending: PendingVerification | null = null;
     try {
@@ -310,6 +341,7 @@ class AuthService {
     // 1. Thử verify qua server API endpoint trước
     let serverVerified = false;
     try {
+      debugLogger.log('API', 'Gọi kiểm tra mã qua /api/auth/verify-otp', { email: trimmedEmail, code: trimmedCode });
       const serverRes = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -319,9 +351,13 @@ class AuthService {
         const serverData = await serverRes.json();
         if (serverData.success) {
           serverVerified = true;
+          debugLogger.success('API', 'Xác thực OTP thành công từ API server!', serverData);
+        } else {
+          debugLogger.warn('API', `API verify-otp từ chối mã: ${serverData.message}`);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      debugLogger.warn('API', `Không thể gọi /api/auth/verify-otp: ${err?.message}`);
       console.warn('Lỗi gọi /api/auth/verify-otp:', err);
     }
 

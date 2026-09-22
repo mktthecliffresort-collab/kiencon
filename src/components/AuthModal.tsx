@@ -37,6 +37,7 @@ interface AuthModalProps {
   currentUser: UserProfile | null;
   currentGrade: GradeLevel;
   onSwitchGrade?: (grade: GradeLevel) => void;
+  onOpenDebug?: () => void;
 }
 
 const AVATARS = [
@@ -57,6 +58,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   currentUser,
   currentGrade,
   onSwitchGrade,
+  onOpenDebug,
 }) => {
   const [mode, setMode] = useState<'signin' | 'signup' | 'verification_pending' | 'verify' | 'welcome' | 'signout_confirm'>(initialMode);
 
@@ -829,9 +831,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   >
                     ← Đổi email hoặc thông tin khác
                   </button>
-                  <span className="text-[11px] text-stone-400">
-                    Bảo mật với Supabase
-                  </span>
+                  {onOpenDebug ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audioService.playClick();
+                        onOpenDebug();
+                      }}
+                      className="text-[11px] text-amber-700 hover:underline flex items-center gap-1 font-bold"
+                    >
+                      🛠️ Chẩn đoán gửi email
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-stone-400">
+                      Bảo mật với Supabase
+                    </span>
+                  )}
                 </div>
               </form>
             </div>

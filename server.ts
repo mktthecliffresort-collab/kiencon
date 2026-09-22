@@ -349,6 +349,149 @@ app.post("/api/gemini/socratic-tutor", async (req, res) => {
   }
 });
 
+// Production & Local Diagnostic Endpoint
+app.all("/api/debug/system-health", async (req, res) => {
+  const nodemailer = await import("nodemailer");
+  const rawUser = process.env.GMAIL_USER || "";
+  const rawPass = process.env.GMAIL_APP_PASSWORD || "";
+  const sanitizedPass = rawPass.replace(/[\s"'-]/g, "").trim();
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+  const now = new Date().toISOString();
+
+  let smtpStatus = "NOT_CONFIGURED";
+  let smtpMessage = "Chưa cấu hình GMAIL_APP_PASSWORD";
+  let smtpErrorDetails: any = null;
+  let transporter: any = null;
+
+  if (sanitizedPass) {
+    try {
+      transporter = nodemailer.default.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: {
+          user: rawUser || "mkt.thecliffresort@gmail.com",
+          pass: sanitizedPass,
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 8000,
+        socketTimeout: 15000,
+      });
+      await transporter.verify();
+      smtpStatus = "CONNECTED";
+      smtpMessage = "✅ Kết nối SMTP Gmail (smtp.gmail.com:465) THÀNH CÔNG!";
+    } catch (err: any) {
+      smtpStatus = "ERROR";
+      smtpMessage = `❌ Lỗi xác thực Gmail SMTP: ${err.message}`;
+      smtpErrorDetails = {
+        code: err.code,
+        command: err.command,
+        response: err.response,
+        responseCode: err.responseCode,
+      };
+    }
+  }
+
+  if (req.method === "POST" && req.body?.action === "send_test_email") {
+    if (!transporter || smtpStatus !== "CONNECTED") {
+      return res.status(400).json({
+        success: false,
+        message: "Không thể gửi thử: Kết nối SMTP chưa sẵn sàng. " + smtpMessage,
+        smtpErrorDetails,
+      });
+    }
+    const recipient = req.body.targetEmail || rawUser || "mkt.thecliffresort@gmail.com";
+    try {
+      const info = await transporter.sendMail({
+        from: `"Kiến Học Diagnostic 🐜" <${rawUser || "mkt.thecliffresort@gmail.com"}>`,
+        to: recipient,
+        subject: `[Kiến Học Production Test] Kiểm tra hệ thống lúc ${new Date().toLocaleTimeString("vi-VN")}`,
+        text: `Kiểm tra gửi email từ Kiến Học thành công! Thời gian: ${now}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; background: #FEF3C7; border-radius: 12px; border: 2px solid #FDE68A;">
+            <h2 style="color: #B45309;">🐜 Gửi email kiểm tra thành công!</h2>
+            <p>Hệ thống gửi email tự động của Vương Quốc Kiến Học đang hoạt động rất tốt.</p>
+            <p><strong>Thời gian:</strong> ${now}</p>
+          </div>
+        `,
+      });
+      return res.json({
+        success: true,
+        message: `Đã gửi thành công email kiểm tra đến ${recipient}!`,
+        messageId: info.messageId,
+      });
+    } catch (sendErr: any) {
+      return res.status(500).json({
+        success: false,
+        message: `Lỗi gửi email: ${sendErr.message}`,
+        error: sendErr,
+      });
+    }
+  }
+
+  let supabaseStatus = "NOT_CONFIGURED";
+  let supabaseMessage = "Chưa cấu hình VITE_SUPABASE_URL hoặc VITE_SUPABASE_ANON_KEY";
+  if (supabaseUrl && supabaseKey) {
+    try {
+      const pingUrl = `${supabaseUrl.replace(/\/$/, "")}/rest/v1/users?select=id&limit=1`;
+      const pingRes = await fetch(pingUrl, {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+      });
+      if (pingRes.ok) {
+        supabaseStatus = "CONNECTED";
+        supabaseMessage = "✅ Kết nối Supabase REST API thành công!";
+      } else {
+        supabaseStatus = "ERROR";
+        supabaseMessage = `Supabase phản hồi HTTP ${pingRes.status}`;
+      }
+    } catch (sbErr: any) {
+      supabaseStatus = "ERROR";
+      supabaseMessage = `Lỗi kết nối Supabase: ${sbErr.message}`;
+    }
+  }
+
+  const issues: string[] = [];
+  const suggestions: string[] = [];
+  if (!rawPass) {
+    issues.push("Thiếu biến môi trường GMAIL_APP_PASSWORD.");
+    suggestions.push("Thêm GMAIL_APP_PASSWORD vào Vercel Project Settings -> Environment Variables.");
+  }
+  if (!supabaseUrl || !supabaseKey) {
+    issues.push("Thiếu biến môi trường VITE_SUPABASE_URL hoặc VITE_SUPABASE_ANON_KEY.");
+    suggestions.push("Thêm VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY vào Vercel để kết nối cơ sở dữ liệu Supabase.");
+  }
+
+  return res.json({
+    status: issues.length === 0 ? "HEALTHY" : "WARNING",
+    timestamp: now,
+    runtime: "Node Container",
+    diagnostics: {
+      smtp: {
+        configured: Boolean(rawPass),
+        user: rawUser ? `${rawUser.slice(0, 3)}***@${rawUser.split("@")[1] || "gmail.com"}` : "Chưa thiết lập",
+        passwordLength: rawPass ? rawPass.length : 0,
+        sanitizedLength: sanitizedPass ? sanitizedPass.length : 0,
+        status: smtpStatus,
+        message: smtpMessage,
+        details: smtpErrorDetails,
+      },
+      supabase: {
+        configured: Boolean(supabaseUrl && supabaseKey),
+        url: supabaseUrl ? supabaseUrl.replace(/^https?:\/\//, "").split(".")[0] + "..." : "Chưa thiết lập",
+        keyLength: supabaseKey ? supabaseKey.length : 0,
+        status: supabaseStatus,
+        message: supabaseMessage,
+      },
+    },
+    issues,
+    suggestions,
+  });
+});
+
 // Email OTP Verification Endpoints
 app.post("/api/auth/send-otp", async (req, res) => {
   try {
