@@ -241,3 +241,44 @@ export interface LeaderboardEntry {
   isCurrentUser?: boolean;
 }
 
+export type AdminRole =
+  | 'super_admin'
+  | 'lesson_manager'
+  | 'subject_manager'
+  | 'grade_manager'
+  | 'content_manager'
+  | 'student_manager';
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  role: AdminRole;
+  roleTitle: string;
+  permissions: string[];
+  lastLogin: string;
+  status: 'active' | 'inactive';
+}
+
+export interface AdminClassInfo {
+  id: string;
+  name: string;
+  grade: GradeLevel;
+  academicYear: string;
+  studentCount: number;
+  headTeacher: string;
+  room: string;
+  status: 'active' | 'archived';
+}
+
+export interface AdminAuditLog {
+  id: string;
+  timestamp: string;
+  adminName: string;
+  role: AdminRole;
+  action: string;
+  target: string;
+  details: string;
+}
+

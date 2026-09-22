@@ -1,7 +1,13 @@
 import nodemailer from 'nodemailer';
 
+interface OtpItem {
+  code: string;
+  expiresAt: number;
+}
+
 interface OtpRecord {
   code: string;
+  codes: OtpItem[];
   email: string;
   fullName: string;
   grade?: number;
@@ -16,7 +22,8 @@ const otpStore = new Map<string, OtpRecord>();
 setInterval(() => {
   const now = Date.now();
   for (const [email, record] of otpStore.entries()) {
-    if (record.expiresAt < now) {
+    record.codes = record.codes.filter((item) => item.expiresAt > now);
+    if (record.codes.length === 0 && record.expiresAt < now) {
       otpStore.delete(email);
     }
   }
@@ -29,16 +36,23 @@ setInterval(() => {
  * 2. Fallback to Ethereal / simulated SMTP for testing
  */
 function createTransporter() {
-  const user = process.env.GMAIL_USER || 'mkt.thecliffresort@gmail.com';
-  const pass = process.env.GMAIL_APP_PASSWORD;
+  const user = (process.env.GMAIL_USER || 'mkt.thecliffresort@gmail.com').trim();
+  const rawPass = process.env.GMAIL_APP_PASSWORD;
 
-  if (pass) {
+  if (rawPass) {
+    // Strip spaces, dashes, or quotes if copied directly from Google Account (e.g. 'abcd efgh ijkl mnop')
+    const pass = rawPass.replace(/[\s"'-]/g, '').trim();
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user,
         pass,
       },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
     });
   }
 
@@ -63,15 +77,24 @@ export async function sendOtpEmail(params: {
   const { email, fullName, code, grade, appUrl } = params;
   const normalizedEmail = email.trim().toLowerCase();
 
-  // Store OTP (valid for 10 minutes)
+  // Store OTP (valid for 15 minutes), preserve recent valid codes
   const now = Date.now();
+  const existingRecord = otpStore.get(normalizedEmail);
+  const activeCodes: OtpItem[] = (existingRecord?.codes || [])
+    .filter((item) => item.expiresAt > now);
+  activeCodes.push({
+    code,
+    expiresAt: now + 15 * 60 * 1000,
+  });
+
   otpStore.set(normalizedEmail, {
     code,
+    codes: activeCodes,
     email: normalizedEmail,
     fullName,
     grade,
     createdAt: now,
-    expiresAt: now + 10 * 60 * 1000,
+    expiresAt: now + 15 * 60 * 1000,
   });
 
   const baseUrl = (appUrl || process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -247,15 +270,19 @@ export function verifyOtpCode(email: string, inputCode: string): {
     };
   }
 
-  if (Date.now() > record.expiresAt) {
-    otpStore.delete(normalizedEmail);
-    return {
-      success: false,
-      message: 'Mã OTP đã hết hạn sau 10 phút. Vui lòng bấm gửi lại mã mới.',
-    };
-  }
+  const now = Date.now();
+  const isCodeMatch =
+    record.code === trimmedCode ||
+    record.codes.some((item) => item.code === trimmedCode && item.expiresAt > now);
 
-  if (record.code !== trimmedCode) {
+  if (!isCodeMatch) {
+    if (record.expiresAt < now && record.codes.every((item) => item.expiresAt < now)) {
+      otpStore.delete(normalizedEmail);
+      return {
+        success: false,
+        message: 'Mã OTP đã hết hạn. Vui lòng bấm gửi lại mã mới.',
+      };
+    }
     return {
       success: false,
       message: 'Mã OTP không chính xác. Vui lòng kiểm tra lại!',

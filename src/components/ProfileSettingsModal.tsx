@@ -35,6 +35,7 @@ interface ProfileSettingsModalProps {
   onSaveProfile: (updatedProfile: UserProfile) => void;
   onOpenAuth?: (mode?: 'signin' | 'signup' | 'signout_confirm') => void;
   isAuthenticated?: boolean;
+  onOpenAdmin?: () => void;
 }
 
 const AVATAR_OPTIONS = [
@@ -63,6 +64,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   onSaveProfile,
   onOpenAuth,
   isAuthenticated = false,
+  onOpenAdmin,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'settings' | 'database'>('profile');
 
@@ -272,7 +274,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               }`}
             >
               <User className="w-4 h-4" />
-              <span>Hồ Sơ Cá Nhân</span>
+              <span>Hồ Sơ</span>
             </button>
             <button
               onClick={() => {
@@ -286,7 +288,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               }`}
             >
               <Palette className="w-4 h-4" />
-              <span>Giao Diện & Âm Thanh</span>
+              <span>Cài Đặt Chung</span>
             </button>
             <button
               onClick={() => {
@@ -300,7 +302,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               }`}
             >
               <Database className="w-4 h-4" />
-              <span>Supabase DB</span>
+              <span>CSDL</span>
             </button>
           </div>
         </div>
@@ -846,13 +848,31 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
 
         {/* Modal Footer with Actions */}
         <div className="p-4 sm:p-5 bg-stone-50 border-t border-stone-200 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-bold text-xs sm:text-sm transition-colors"
-          >
-            Đóng
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-bold text-xs sm:text-sm transition-colors"
+            >
+              Đóng
+            </button>
+            {onOpenAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  audioService.playClick();
+                  onClose();
+                  onOpenAdmin();
+                }}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 font-bold text-xs sm:text-sm transition-colors"
+                title="Mở Trang Quản Trị Hệ Thống Admin"
+              >
+                <ShieldCheck className="w-4 h-4 text-purple-600" />
+                <span className="hidden sm:inline">Quản Trị</span>
+                <span>Admin</span>
+              </button>
+            )}
+          </div>
 
           <button
             type="button"

@@ -14,6 +14,7 @@ import { AllyShowcaseModal } from './components/AllyShowcaseModal';
 import { MasteryDashboardModal } from './components/MasteryDashboardModal';
 import { LeaderboardModal } from './components/LeaderboardModal';
 import { ProfileSettingsModal } from './components/ProfileSettingsModal';
+import { AdminPortalModal } from './components/Admin/AdminPortalModal';
 import { AuthModal } from './components/AuthModal';
 import { authService } from './services/authService';
 import { Grade5MathReviewHub } from './components/Grade5MathReview/Grade5MathReviewHub';
@@ -40,10 +41,11 @@ export default function App() {
   const [masteryModalOpen, setMasteryModalOpen] = useState<boolean>(false);
   const [leaderboardModalOpen, setLeaderboardModalOpen] = useState<boolean>(false);
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
+  const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
 
   // Account Authentication Modal & Toast
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
-  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'signout_confirm'>('signup');
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'verification_pending' | 'signout_confirm'>('signup');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isAuthenticated());
   const [authNotificationToast, setAuthNotificationToast] = useState<string | null>(null);
 
@@ -82,6 +84,10 @@ export default function App() {
             // Làm sạch URL
             window.history.replaceState({}, document.title, window.location.pathname);
             return;
+          } else if (isMounted) {
+            // Mở modal xác thực trực tiếp để học sinh kiểm tra và bấm xác nhận
+            setAuthModalMode('verification_pending');
+            setAuthModalOpen(true);
           }
         }
       } catch (linkErr) {
@@ -350,6 +356,7 @@ export default function App() {
         onOpenLeaderboard={() => setLeaderboardModalOpen(true)}
         onOpenProfile={() => setProfileModalOpen(true)}
         onOpenAuth={handleOpenAuth}
+        onOpenAdmin={() => setAdminModalOpen(true)}
         isAuthenticated={isAuthenticated}
         unclaimedQuestsCount={unclaimedQuestsCount}
         isStreakTriggered={isStreakTriggered}
@@ -820,8 +827,24 @@ export default function App() {
         user={user}
         onSaveProfile={handleSaveProfile}
         onOpenAuth={handleOpenAuth}
+        onOpenAdmin={() => setAdminModalOpen(true)}
         isAuthenticated={isAuthenticated}
       />
+
+      {/* Admin Management Portal Modal */}
+      {user && (
+        <AdminPortalModal
+          isOpen={adminModalOpen}
+          onClose={() => setAdminModalOpen(false)}
+          currentUser={user}
+          lessons={lessons}
+          subjects={subjects}
+          quests={quests}
+          onUpdateLessons={(updated) => setLessons(updated)}
+          onUpdateSubjects={(updated) => setSubjects(updated)}
+          onUpdateQuests={(updated) => setQuests(updated)}
+        />
+      )}
 
       {/* Account Authentication & Email Verification Modal */}
       <AuthModal

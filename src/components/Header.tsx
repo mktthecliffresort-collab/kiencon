@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, GradeLevel } from '../types';
-import { Flame, Award, Sparkles, Volume2, VolumeX, CheckCircle2, Trophy, Calendar, Zap, X, Settings, Database, BookOpen, Heart, LogOut, LogIn, UserPlus } from 'lucide-react';
+import { Flame, Award, Sparkles, Volume2, VolumeX, CheckCircle2, Trophy, Calendar, Zap, X, Settings, Database, BookOpen, Heart, LogOut, LogIn, UserPlus, ShieldCheck } from 'lucide-react';
 import { audioService } from '../services/audioService';
 import { supabaseService } from '../services/supabaseService';
 
@@ -13,6 +13,7 @@ interface HeaderProps {
   onOpenLeaderboard: () => void;
   onOpenProfile: () => void;
   onOpenAuth?: (mode?: 'signin' | 'signup' | 'signout_confirm') => void;
+  onOpenAdmin?: () => void;
   isAuthenticated?: boolean;
   unclaimedQuestsCount: number;
   isStreakTriggered?: boolean;
@@ -27,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLeaderboard,
   onOpenProfile,
   onOpenAuth,
+  onOpenAdmin,
   isAuthenticated = false,
   unclaimedQuestsCount,
   isStreakTriggered,
@@ -444,6 +446,23 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </button>
 
+            {/* Admin Management Portal Button */}
+            {onOpenAdmin && (
+              <button
+                id="desktop-header-admin"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  onOpenAdmin();
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-gradient-to-r from-purple-50 to-stone-100 hover:from-purple-100 hover:to-stone-200 border-2 border-purple-300 text-purple-950 font-black text-xs active:scale-95 shadow-2xs transition-all shrink-0"
+                title="Trang Quản Trị Hệ Thống Admin"
+              >
+                <ShieldCheck className="w-4 h-4 text-purple-700 shrink-0" />
+                <span className="hidden xl:inline">Quản Trị</span>
+                <span className="text-[10px] px-1 py-0.2 rounded bg-purple-200 text-purple-900 font-black uppercase">Admin</span>
+              </button>
+            )}
+
             {/* Auth / Account Buttons (Sign In / Sign Up / Sign Out - Always visible on Tablet) */}
             {isAuthenticated ? (
               <button
@@ -573,6 +592,22 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-sm leading-none">{user.avatar || '🐜'}</span>
                 <Settings className="w-3 h-3 text-amber-700 shrink-0" />
               </button>
+
+              {/* Admin Button on Mobile */}
+              {onOpenAdmin && (
+                <button
+                  id="mobile-header-admin"
+                  onClick={() => {
+                    audioService.playBoingPop();
+                    onOpenAdmin();
+                  }}
+                  className="p-1 px-1.5 rounded-xl bg-purple-100 hover:bg-purple-200 border border-purple-300 text-purple-900 font-black text-xs flex items-center gap-1 active:scale-90 transition-all shrink-0"
+                  title="Trang Quản Trị Admin"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                  <span className="text-[10px] font-black">Admin</span>
+                </button>
+              )}
 
               {/* Auth / Account Buttons */}
               {isAuthenticated ? (

@@ -30,7 +30,7 @@ import {
 
 interface AuthModalProps {
   isOpen: boolean;
-  initialMode?: 'signin' | 'signup' | 'signout_confirm';
+  initialMode?: 'signin' | 'signup' | 'verification_pending' | 'signout_confirm';
   onClose: () => void;
   onAuthSuccess: (user: UserProfile, message?: string) => void;
   onSignOutSuccess: (defaultUser: UserProfile) => void;
@@ -92,6 +92,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setSuccessInfo(null);
       if (initialMode === 'signup' && !selectedGrade) {
         setSelectedGrade(currentGrade || 5);
+      }
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const emailFromUrl = urlParams.get('verify_email');
+        const codeFromUrl = urlParams.get('code');
+        if (emailFromUrl && !email) {
+          setEmail(emailFromUrl);
+        }
+        if (codeFromUrl && !verificationCode) {
+          setVerificationCode(codeFromUrl);
+        }
       }
     }
   }, [isOpen, initialMode, currentGrade]);

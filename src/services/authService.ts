@@ -44,6 +44,7 @@ export interface PendingVerification {
   grade: GradeLevel;
   avatar: string;
   code: string;
+  validCodes?: string[];
   createdAt: number;
 }
 
@@ -143,6 +144,21 @@ class AuthService {
     // Tạo mã xác minh 6 số ngẫu nhiên
     const demoCode = Math.floor(100000 + Math.random() * 900000).toString();
 
+    // Giữ danh sách các mã OTP đã gửi gần đây (để nếu người dùng nhận email đến muộn vẫn dùng được mã)
+    let recentCodes: string[] = [demoCode];
+    try {
+      const prevRaw = localStorage.getItem(PENDING_VERIFICATION_KEY);
+      if (prevRaw) {
+        const prevData = JSON.parse(prevRaw) as PendingVerification;
+        if (prevData.email === trimmedEmail) {
+          const combined = [...(prevData.validCodes || (prevData.code ? [prevData.code] : [])), demoCode];
+          recentCodes = Array.from(new Set(combined)).slice(-8);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     // Lưu thông tin chờ xác minh
     const pendingData: PendingVerification = {
       email: trimmedEmail,
@@ -153,6 +169,7 @@ class AuthService {
       grade,
       avatar,
       code: demoCode,
+      validCodes: recentCodes,
       createdAt: Date.now(),
     };
 
@@ -316,18 +333,42 @@ class AuthService {
           token: trimmedCode,
           type: 'signup',
         });
-        if (!error && data.user) {
+        if (!error && data?.user) {
           authUserId = data.user.id;
+        } else {
+          // Thử kiểu 'email' (cho magic link token từ Supabase)
+          try {
+            const emailAttempt = await client.auth.verifyOtp({
+              email: trimmedEmail,
+              token: trimmedCode,
+              type: 'email',
+            });
+            if (!emailAttempt.error && emailAttempt.data?.user) {
+              authUserId = emailAttempt.data.user.id;
+            }
+          } catch {
+            // ignore
+          }
         }
-      } catch {
-        // Fallback kiểm tra mã demo nội bộ
+      } catch (err) {
+        console.warn('Supabase verifyOtp notice:', err);
       }
     }
 
-    // Kiểm tra mã: chấp nhận nếu server API verify OK HOẶC khớp pending code HOẶC khớp 123456 HOẶC Supabase OTP thành công
+    // Kiểm tra mã: chấp nhận nếu:
+    // 1. Server API verify OK
+    // 2. Khớp pending.code HOẶC bất kỳ mã nào trong pending.validCodes (được gửi trong các lần trước)
+    // 3. Khớp mã test cứu hộ '123456'
+    // 4. Supabase verifyOtp thành công
+    const isCodeMatchInPending = Boolean(
+      pending &&
+      (pending.code === trimmedCode ||
+       (pending.validCodes && pending.validCodes.includes(trimmedCode)))
+    );
+
     const isCodeValid =
       serverVerified ||
-      (pending && pending.code === trimmedCode) ||
+      isCodeMatchInPending ||
       trimmedCode === '123456' ||
       Boolean(authUserId);
 
@@ -349,7 +390,7 @@ class AuthService {
         const { data } = await client
           .from('users')
           .select('*')
-          .or(`id.eq.${userId},auth_id.eq.${userId}`)
+          .or(`id.eq.${userId},auth_id.eq.${userId},email.eq.${trimmedEmail}`)
           .maybeSingle();
         if (data) {
           dbUser = data as Record<string, unknown>;
@@ -478,11 +519,14 @@ class AuthService {
     const trimmedEmail = email.trim().toLowerCase();
     const newCode = Math.floor(100000 + Math.random() * 900000).toString();
 
+    let pending: PendingVerification | null = null;
     try {
       const raw = localStorage.getItem(PENDING_VERIFICATION_KEY);
       if (raw) {
-        const pending = JSON.parse(raw) as PendingVerification;
+        pending = JSON.parse(raw) as PendingVerification;
         if (pending.email === trimmedEmail) {
+          const currentValid = pending.validCodes || (pending.code ? [pending.code] : []);
+          pending.validCodes = Array.from(new Set([...currentValid, newCode])).slice(-8);
           pending.code = newCode;
           pending.createdAt = Date.now();
           localStorage.setItem(PENDING_VERIFICATION_KEY, JSON.stringify(pending));
@@ -490,6 +534,24 @@ class AuthService {
       }
     } catch {
       // ignore
+    }
+
+    // 1. Thực hiện gửi email OTP mới qua API server
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+    try {
+      await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          fullName: pending?.fullName || 'Học sinh Kiến',
+          code: newCode,
+          grade: pending?.grade || 5,
+          appUrl: currentOrigin,
+        }),
+      });
+    } catch (apiErr) {
+      console.warn('Lỗi gọi /api/auth/send-otp khi resend:', apiErr);
     }
 
     const client = getSupabaseClient();
