@@ -1,4 +1,4 @@
-import { sendOtpEmail } from '../../server/services/emailOtpService';
+import { sendOtpEmail } from '../_lib/emailOtpService';
 
 export default async function handler(req: any, res: any) {
   // CORS Preflight handling

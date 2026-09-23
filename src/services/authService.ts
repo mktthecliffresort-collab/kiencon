@@ -328,7 +328,28 @@ class AuthService {
 
             const { error: upsertErr } = await client.from('users').upsert(upsertPayload as any);
             if (upsertErr) {
-              debugLogger.error('SUPABASE', `Lỗi upsert vào bảng public.users: ${upsertErr.message}`, upsertErr);
+              debugLogger.warn('SUPABASE', `Lỗi upsert vào bảng public.users (${upsertErr.message}), đang kích hoạt fallback linh hoạt...`);
+              // Thử lại không kèm các trường mở rộng nếu schema chưa chạy migration
+              const compactPayload: Record<string, unknown> = {
+                id: authData.user.id,
+                full_name: fullName.trim(),
+                nickname: nickname?.trim() || fullName.trim(),
+                current_grade: grade,
+                avatar,
+                total_xp: INITIAL_WELCOME_XP,
+                streak_days: 1,
+                level: 1,
+                role: 'student',
+                is_verified: false,
+                last_login_at: new Date().toISOString(),
+                settings: upsertPayload.settings,
+              };
+              const { error: compactErr } = await client.from('users').upsert(compactPayload as any);
+              if (!compactErr) {
+                debugLogger.success('SUPABASE', 'Lưu thành công hồ sơ vào bảng public.users (chế độ tương thích)!');
+              } else {
+                debugLogger.error('SUPABASE', `Không thể lưu vào public.users: ${compactErr.message}`);
+              }
             } else {
               debugLogger.success('SUPABASE', 'Lưu thành công hồ sơ vào bảng public.users!');
             }
@@ -564,7 +585,24 @@ class AuthService {
         if (birthDate) upsertPayload.birth_date = birthDate;
         upsertPayload.enrolled_courses = enrolledCourses;
 
-        await client.from('users').upsert(upsertPayload as any);
+        const { error: upsertErr } = await client.from('users').upsert(upsertPayload as any);
+        if (upsertErr) {
+          const compactPayload: Record<string, unknown> = {
+            id: userId,
+            full_name: fullName,
+            nickname,
+            current_grade: grade,
+            avatar,
+            total_xp: newUserProfile.xp,
+            streak_days: 1,
+            level: 1,
+            role: 'student',
+            is_verified: true,
+            settings: upsertPayload.settings,
+            updated_at: new Date().toISOString(),
+          };
+          await client.from('users').upsert(compactPayload as any);
+        }
       } catch (err) {
         console.warn('Lỗi upsert user vào Supabase:', err);
       }
@@ -1058,20 +1096,24 @@ class AuthService {
       const username = params.username?.trim().toLowerCase();
       const phone = params.phone?.trim();
 
-      // 1. Kiểm tra Email
+      // 1. Kiểm tra Email (bọc an toàn nếu bảng users chưa có cột email)
       if (email) {
-        const { data: emailUser } = await client
-          .from('users')
-          .select('id, email')
-          .eq('email', email)
-          .maybeSingle();
+        try {
+          const { data: emailUser, error: emailErr } = await client
+            .from('users')
+            .select('id, email')
+            .eq('email', email)
+            .maybeSingle();
 
-        if (emailUser) {
-          return {
-            exists: true,
-            field: 'email',
-            message: `Email "${email}" đã được đăng ký tài khoản. Vui lòng đăng nhập hoặc dùng email khác.`,
-          };
+          if (!emailErr && emailUser) {
+            return {
+              exists: true,
+              field: 'email',
+              message: `Email "${email}" đã được đăng ký tài khoản. Vui lòng đăng nhập hoặc dùng email khác.`,
+            };
+          }
+        } catch {
+          // Bỏ qua nếu bảng users chưa có cột email
         }
       }
 

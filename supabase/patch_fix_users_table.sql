@@ -1,0 +1,66 @@
+-- ==============================================================================
+-- BẢN VÁ CƠ SỞ DỮ LIỆU SUPABASE CHO KIẾN HỌC (CHẠY TRONG SUPABASE SQL EDITOR)
+-- ==============================================================================
+-- 1. Bổ sung các cột mở rộng cho bảng public.users nếu thiếu
+-
+-CREATE TABLE IF NOT EXISTS public.users (
+-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-    auth_id UUID,
+-    full_name TEXT NOT NULL DEFAULT 'Học sinh Kiến',
+-    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+-);
+-
+--- Thêm các cột đầy đủ nếu chưa tồn tại
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS auth_id UUID;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email TEXT;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS username TEXT;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS phone TEXT;
+-ALTER TABLE IF EXISTS public.users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT 'Học sinh Kiến';
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS nickname TEXT;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS birth_date DATE;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS current_grade INTEGER NOT NULL DEFAULT 5;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS enrolled_courses TEXT[] DEFAULT ARRAY['toan_5']::text[];
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS school_name TEXT;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student';
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT false;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS avatar TEXT NOT NULL DEFAULT '🐜';
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS total_xp INTEGER NOT NULL DEFAULT 250;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS streak_days INTEGER NOT NULL DEFAULT 1;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS level INTEGER NOT NULL DEFAULT 1;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now());
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{"mode": "light", "accentColor": "amber", "soundEnabled": true, "soundVolume": 80, "ambientChime": true}'::jsonb;
+-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now());
+-
+--- Tạo chỉ mục tìm kiếm nhanh
+-CREATE INDEX IF NOT EXISTS idx_users_email ON public.users (email);
+-CREATE INDEX IF NOT EXISTS idx_users_username ON public.users (username);
+-CREATE INDEX IF NOT EXISTS idx_users_auth_id ON public.users (auth_id);
+-
+--- 2. Bảng lưu mã OTP serverless
+-CREATE TABLE IF NOT EXISTS public.otp_codes (
+-    email TEXT PRIMARY KEY,
+-    code TEXT NOT NULL,
+-    codes JSONB DEFAULT '[]'::jsonb,
+-    expires_at TIMESTAMPTZ NOT NULL,
+-    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+-);
+-
+--- 3. Phân quyền truy cập (RLS & Grants) cho phép anon / authenticated đọc ghi hồ sơ
+-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+-ALTER TABLE public.otp_codes ENABLE ROW LEVEL SECURITY;
+-
+--- Cho phép anon & authenticated thao tác users
+-DROP POLICY IF EXISTS "Public full access users" ON public.users;
+-CREATE POLICY "Public full access users" ON public.users FOR ALL USING (true) WITH CHECK (true);
+-
+--- Cho phép anon & authenticated thao tác otp_codes
+-DROP POLICY IF EXISTS "Public full access otp_codes" ON public.otp_codes;
+-CREATE POLICY "Public full access otp_codes" ON public.otp_codes FOR ALL USING (true) WITH CHECK (true);
+-
+-GRANT ALL ON TABLE public.users TO anon, authenticated, service_role;
+-GRANT ALL ON TABLE public.otp_codes TO anon, authenticated, service_role;
+-
+--- Làm mới bộ nhớ đệm PostgREST Schema Cache
+-NOTIFY pgrst, 'reload schema';
+-
+--- THÔNG BÁO: ĐÃ CẬP NHẬT THÀNH CÔNG BẢNG PUBLIC.USERS!

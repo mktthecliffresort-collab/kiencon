@@ -1,4 +1,4 @@
-import { verifyOtpCode } from '../../server/services/emailOtpService';
+import { verifyOtpCode } from '../_lib/emailOtpService';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
