@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
   Database,
@@ -20,13 +20,42 @@ import {
   FileCode,
   Check,
   Sparkles,
+  Menu,
+  X,
+  ChevronRight,
+  Plus,
+  Search,
+  Filter,
+  School,
+  GraduationCap,
+  FileText,
+  Award,
+  Flame,
+  Clock,
+  ArrowUpRight,
+  Server,
+  Zap,
+  Edit2,
+  Trash2,
+  Star,
+  Sliders,
 } from 'lucide-react';
-import { AdminUser, Lesson, Subject, DailyQuest, UserProfile } from '../../types';
+import {
+  AdminUser,
+  AdminRole,
+  AdminClassInfo,
+  AdminAuditLog,
+  Lesson,
+  Subject,
+  GradeLevel,
+  DailyQuest,
+  UserProfile,
+  KHTNDomain,
+} from '../../types';
 import { adminService, DEMO_ADMINS } from '../../services/adminService';
 import { supabaseService } from '../../services/supabaseService';
 import { audioService } from '../../services/audioService';
-import { AdminPortalModal } from '../Admin/AdminPortalModal';
-import { ProductionDebugModal } from '../ProductionDebugModal';
+import { ALLIES } from '../../data/alliesData';
 
 interface AdminCPPageProps {
   onBackToApp: () => void;
@@ -39,22 +68,273 @@ interface AdminCPPageProps {
   onUpdateQuests?: (quests: DailyQuest[]) => void;
 }
 
+// 6 Admin Roles Configuration with RBAC Permissions
+export const ADMIN_ROLES_CONFIG: Record<
+  AdminRole,
+  {
+    role: AdminRole;
+    name: string;
+    shortTitle: string;
+    badgeColor: string;
+    icon: string;
+    description: string;
+    accessibleTabs: string[];
+  }
+> = {
+  super_admin: {
+    role: 'super_admin',
+    name: 'Super Admin',
+    shortTitle: 'Quản Trị Tối Cao',
+    badgeColor: 'bg-red-100 text-red-800 border-red-300',
+    icon: '👑',
+    description: 'Toàn quyền điều hành hệ thống: quản trị nhân sự, phân quyền, cấu hình hệ thống, bài học, môn học, lớp học và học viên.',
+    accessibleTabs: ['overview', 'lessons', 'subjects', 'classes', 'content', 'students', 'staff', 'database', 'production'],
+  },
+  lesson_manager: {
+    role: 'lesson_manager',
+    name: 'Quản Lý Bài Học',
+    shortTitle: 'Lesson Manager',
+    badgeColor: 'bg-blue-100 text-blue-800 border-blue-300',
+    icon: '📚',
+    description: 'Biên soạn, cấu trúc 4 bước (Khám phá, Luyện tập, Vận dụng, Giảng lại), phân phối điểm XP và xuất bản bài học.',
+    accessibleTabs: ['overview', 'lessons', 'content'],
+  },
+  subject_manager: {
+    role: 'subject_manager',
+    name: 'Quản Lý Môn Học',
+    shortTitle: 'Subject Manager',
+    badgeColor: 'bg-purple-100 text-purple-800 border-purple-300',
+    icon: '🏷️',
+    description: 'Thiết lập danh mục môn học, phân phối chương trình Lớp 5 & Lớp 8, quản lý phân nhánh tích hợp KHTN.',
+    accessibleTabs: ['overview', 'subjects', 'classes'],
+  },
+  grade_manager: {
+    role: 'grade_manager',
+    name: 'Quản Lý Lớp',
+    shortTitle: 'Grade & Class Manager',
+    badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    icon: '🏫',
+    description: 'Quản lý khối lớp (Lớp 5, Lớp 8), danh sách lớp học (5A, 5B, 8A, 8B), phân bổ học sinh và giáo viên cố vấn.',
+    accessibleTabs: ['overview', 'classes', 'students'],
+  },
+  content_manager: {
+    role: 'content_manager',
+    name: 'Quản Lý Nội Dung',
+    shortTitle: 'Content Manager',
+    badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+    icon: '🎯',
+    description: 'Quản lý cốt truyện Kiến Con, ngân hàng nhiệm vụ hàng ngày (Quests), linh vật đồng hành và đề thi.',
+    accessibleTabs: ['overview', 'content', 'lessons'],
+  },
+  student_manager: {
+    role: 'student_manager',
+    name: 'Quản Lý Học Viên',
+    shortTitle: 'Student Manager',
+    badgeColor: 'bg-sky-100 text-sky-800 border-sky-300',
+    icon: '🎒',
+    description: 'Quản trị hồ sơ học viên, theo dõi tiến độ học tập, khích lệ streak ngày và khen thưởng điểm kinh nghiệm XP.',
+    accessibleTabs: ['overview', 'students'],
+  },
+};
+
+interface ManagedStudent {
+  id: string;
+  name: string;
+  nickname: string;
+  grade: GradeLevel;
+  className: string;
+  school: string;
+  xp: number;
+  streak: number;
+  level: number;
+  lastActive: string;
+}
+
+const INITIAL_CLASSES: AdminClassInfo[] = [
+  {
+    id: 'class_5a1',
+    name: 'Lớp 5A1 - Kiến Chăm Chỉ',
+    grade: 5,
+    academicYear: '2026 - 2027',
+    studentCount: 38,
+    headTeacher: 'Cô Đỗ Thu Hà',
+    room: 'Phòng 201 - Nhà A',
+    status: 'active',
+  },
+  {
+    id: 'class_5a2',
+    name: 'Lớp 5A2 - Kiến Khám Phá',
+    grade: 5,
+    academicYear: '2026 - 2027',
+    studentCount: 36,
+    headTeacher: 'Thầy Nguyễn Văn Đức',
+    room: 'Phòng 202 - Nhà A',
+    status: 'active',
+  },
+  {
+    id: 'class_5a3',
+    name: 'Lớp 5A3 - Kiến Tinh Anh',
+    grade: 5,
+    academicYear: '2026 - 2027',
+    studentCount: 35,
+    headTeacher: 'Cô Lê Bích Ngọc',
+    room: 'Phòng 203 - Nhà A',
+    status: 'active',
+  },
+  {
+    id: 'class_8a',
+    name: 'Lớp 8A - Kiến Thám Hiểm KHTN',
+    grade: 8,
+    academicYear: '2026 - 2027',
+    studentCount: 42,
+    headTeacher: 'Thầy Hoàng Trọng Tín',
+    room: 'Phòng Lab 401 - Nhà B',
+    status: 'active',
+  },
+  {
+    id: 'class_8b',
+    name: 'Lớp 8B - Kiến Năng Lượng',
+    grade: 8,
+    academicYear: '2026 - 2027',
+    studentCount: 40,
+    headTeacher: 'Cô Vũ Hải Yến',
+    room: 'Phòng Lab 402 - Nhà B',
+    status: 'active',
+  },
+];
+
+const INITIAL_STUDENTS: ManagedStudent[] = [
+  {
+    id: 'stu_1',
+    name: 'Minh Khang',
+    nickname: 'Kiến Siêu Trí Tuệ',
+    grade: 5,
+    className: '5A1',
+    school: 'Tiểu học Dịch Vọng A',
+    xp: 2850,
+    streak: 12,
+    level: 7,
+    lastActive: '10 phút trước',
+  },
+  {
+    id: 'stu_2',
+    name: 'Bảo Anh',
+    nickname: 'Kiến Nhanh Nhẹn',
+    grade: 5,
+    className: '5A2',
+    school: 'Tiểu học Thực Nghiệm',
+    xp: 2420,
+    streak: 9,
+    level: 6,
+    lastActive: 'Hôm nay 09:15',
+  },
+  {
+    id: 'stu_3',
+    name: 'Tuấn Kiệt',
+    nickname: 'Nhà Bác Học Nhí',
+    grade: 8,
+    className: '8A',
+    school: 'THCS Cầu Giấy',
+    xp: 4200,
+    streak: 15,
+    level: 10,
+    lastActive: '15 phút trước',
+  },
+  {
+    id: 'stu_4',
+    name: 'Hà Linh',
+    nickname: 'Kiến Vui Vẻ',
+    grade: 8,
+    className: '8B',
+    school: 'THCS Giảng Võ',
+    xp: 3890,
+    streak: 8,
+    level: 9,
+    lastActive: 'Hôm qua 18:20',
+  },
+  {
+    id: 'stu_5',
+    name: 'Gia Huy',
+    nickname: 'Kiến Khám Phá',
+    grade: 5,
+    className: '5A3',
+    school: 'Tiểu học Nghĩa Tân',
+    xp: 1950,
+    streak: 5,
+    level: 5,
+    lastActive: '2 ngày trước',
+  },
+];
+
 export const AdminCPPage: React.FC<AdminCPPageProps> = ({
   onBackToApp,
-  lessons,
-  subjects,
-  quests,
+  lessons: initialLessons,
+  subjects: initialSubjects,
+  quests: initialQuests,
   currentUser,
   onUpdateLessons,
   onUpdateSubjects,
   onUpdateQuests,
 }) => {
   const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(() => adminService.getCurrentAdmin());
-  const [activeTab, setActiveTab] = useState<'portal' | 'database' | 'production' | 'staff'>('portal');
+
+  // Active navigation tab: mapped directly to requirements
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'lessons' | 'subjects' | 'classes' | 'content' | 'students' | 'staff' | 'database' | 'production'
+  >('overview');
+
+  // Mobile drawer state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Filter & Search
+  const [gradeFilter, setGradeFilter] = useState<'all' | 5 | 8>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Local state for managed entities
+  const [managedLessons, setManagedLessons] = useState<Lesson[]>(initialLessons);
+  const [managedSubjects, setManagedSubjects] = useState<Subject[]>(initialSubjects);
+  const [managedQuests, setManagedQuests] = useState<DailyQuest[]>(initialQuests);
+  const [classesList, setClassesList] = useState<AdminClassInfo[]>(INITIAL_CLASSES);
+  const [studentsList, setStudentsList] = useState<ManagedStudent[]>(INITIAL_STUDENTS);
+  const [staffList, setStaffList] = useState<AdminUser[]>(DEMO_ADMINS);
+
+  // Audit Logs
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([
+    {
+      id: 'log_1',
+      timestamp: '11:20:15 - Hôm nay',
+      adminName: 'Nguyễn Minh Hoàng',
+      role: 'super_admin',
+      action: 'Khởi tạo phiên quản trị hệ thống',
+      target: 'Toàn bộ hệ thống Kiến Học',
+      details: 'Đồng bộ cơ sở dữ liệu Supabase & cấu hình bảng riêng admin_users',
+    },
+    {
+      id: 'log_2',
+      timestamp: '10:45:00 - Hôm nay',
+      adminName: 'Trần Thị Mai Lan',
+      role: 'lesson_manager',
+      action: 'Cập nhật cấu trúc bài học',
+      target: 'Phép Chia Số Thập Phân Cho Số Tự Nhiên',
+      details: 'Hiệu chỉnh 4 bước: Khám phá, Luyện tập, Vận dụng, Giảng lại',
+    },
+    {
+      id: 'log_3',
+      timestamp: '09:30:12 - Hôm nay',
+      adminName: 'TS. Lê Quang Vũ',
+      role: 'subject_manager',
+      action: 'Đồng bộ chương trình môn học',
+      target: 'Môn KHTN Lớp 8',
+      details: 'Phân định 3 phân môn: Vật Lí, Hóa Học, Sinh Học',
+    },
+  ]);
+
+  // Notifications
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Login form state
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Database Tab state
@@ -75,8 +355,26 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Modals inside AdminCP
-  const [showSubPortal, setShowSubPortal] = useState(false);
-  const [showSubDebug, setShowSubDebug] = useState(false);
+  const [newLessonModalOpen, setNewLessonModalOpen] = useState(false);
+  const [newClassModalOpen, setNewClassModalOpen] = useState(false);
+  const [newAdminModalOpen, setNewAdminModalOpen] = useState(false);
+  const [selectedLessonForStepView, setSelectedLessonForStepView] = useState<Lesson | null>(null);
+
+  // Form states for modals
+  const [newLessonTitle, setNewLessonTitle] = useState('');
+  const [newLessonGrade, setNewLessonGrade] = useState<GradeLevel>(5);
+  const [newLessonSubject, setNewLessonSubject] = useState('toan_5');
+  const [newLessonUnit, setNewLessonUnit] = useState('Chương 1: Ôn Tập & Bổ Sung');
+  const [newLessonXP, setNewLessonXP] = useState(120);
+
+  const [newClassName, setNewClassName] = useState('');
+  const [newClassGrade, setNewClassGrade] = useState<GradeLevel>(5);
+  const [newClassTeacher, setNewClassTeacher] = useState('');
+  const [newClassRoom, setNewClassRoom] = useState('');
+
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState<AdminRole>('lesson_manager');
 
   useEffect(() => {
     const unsub = adminService.subscribe((admin) => {
@@ -85,22 +383,41 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
     return unsub;
   }, []);
 
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    audioService.playSuccess();
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const addAudit = (action: string, target: string, details: string) => {
+    const roleName = currentAdmin ? ADMIN_ROLES_CONFIG[currentAdmin.role]?.name : 'Admin';
+    const newLog: AdminAuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' - Vừa xong',
+      adminName: roleName,
+      role: currentAdmin?.role || 'super_admin',
+      action,
+      target,
+      details,
+    };
+    setAuditLogs((prev) => [newLog, ...prev]);
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
     audioService.playClick();
 
-    if (!email.trim()) {
+    if (!loginEmail.trim()) {
       setLoginError('Vui lòng nhập email quản trị viên.');
       return;
     }
 
-    const res = adminService.loginWithEmail(email, password);
+    const res = adminService.loginWithEmail(loginEmail, loginPassword);
     if (!res.success) {
       setLoginError(res.error || 'Email quản trị viên không chính xác!');
-      audioService.playClick();
     } else {
-      audioService.playSuccess();
+      showToast(`Đăng nhập thành công với vai trò: ${res.admin?.roleTitle}`);
     }
   };
 
@@ -109,6 +426,8 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
     const admin = adminService.impersonate(adminId);
     if (admin) {
       setCurrentAdmin(admin);
+      showToast(`Đã chuyển vai trò sang: ${admin.roleTitle} (${admin.name})`);
+      addAudit('Chuyển vai trò quản trị', admin.roleTitle, `Đóng vai tài khoản ${admin.name} (${admin.email})`);
     }
   };
 
@@ -131,7 +450,11 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
         message: res.message,
         latencyMs: latency,
       });
-      if (res.connected) audioService.playSuccess();
+      if (res.connected) {
+        audioService.playSuccess();
+        showToast(`Kết nối Supabase ổn định (${latency}ms)`);
+        addAudit('Kiểm tra máy chủ CSDL', 'Supabase PostgreSQL', `Trạng thái: Hoạt động (${latency}ms)`);
+      }
     } catch {
       setDbStatus({
         tested: true,
@@ -150,7 +473,8 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
     try {
       await supabaseService.syncProfileToSupabase(currentUser);
       setSyncMessage('Đã đồng bộ dữ liệu người dùng và tiến độ học tập lên Supabase thành công! 🚀');
-      audioService.playSuccess();
+      showToast('Đồng bộ CSDL Supabase hoàn tất!');
+      addAudit('Đồng bộ dữ liệu CSDL', 'public.users', 'Cập nhật hồ sơ học viên & tiến độ lên đám mây');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setSyncMessage(`Lỗi đồng bộ: ${msg}`);
@@ -159,47 +483,185 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
     }
   };
 
+  // RBAC Tab access check
+  const activeRoleConfig = currentAdmin ? ADMIN_ROLES_CONFIG[currentAdmin.role] : ADMIN_ROLES_CONFIG.super_admin;
+  const canAccessTab = (tabKey: string) => {
+    if (!currentAdmin || currentAdmin.role === 'super_admin') return true;
+    return activeRoleConfig.accessibleTabs.includes(tabKey);
+  };
+
+  // Award XP to student
+  const handleAwardXP = (studentId: string, amount: number) => {
+    audioService.playSuccess();
+    setStudentsList((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, xp: s.xp + amount, level: Math.floor((s.xp + amount) / 400) + 1 } : s))
+    );
+    const stu = studentsList.find((s) => s.id === studentId);
+    showToast(`Đã cộng +${amount} XP khích lệ cho học viên ${stu?.name || ''}`);
+    addAudit('Thưởng điểm XP khích lệ', `Học viên: ${stu?.name || studentId}`, `Cộng +${amount} XP`);
+  };
+
+  // Create new class
+  const handleCreateClass = () => {
+    if (!newClassName.trim() || !newClassTeacher.trim()) {
+      alert('Vui lòng nhập tên lớp và tên giáo viên!');
+      return;
+    }
+    const newClass: AdminClassInfo = {
+      id: `class_${Date.now()}`,
+      name: newClassName.trim(),
+      grade: newClassGrade,
+      academicYear: '2026 - 2027',
+      studentCount: 0,
+      headTeacher: newClassTeacher.trim(),
+      room: newClassRoom.trim() || 'Phòng học trực tuyến',
+      status: 'active',
+    };
+    setClassesList((prev) => [...prev, newClass]);
+    showToast(`Đã tạo mới lớp "${newClass.name}" thành công!`);
+    addAudit('Tạo mới lớp học', newClass.name, `Khối Lớp ${newClass.grade}, GV: ${newClass.headTeacher}`);
+    setNewClassName('');
+    setNewClassTeacher('');
+    setNewClassRoom('');
+    setNewClassModalOpen(false);
+  };
+
+  // Create new lesson
+  const handleCreateLesson = () => {
+    if (!newLessonTitle.trim()) {
+      alert('Vui lòng nhập tiêu đề bài học!');
+      return;
+    }
+    const newL: Lesson = {
+      id: `lesson_custom_${Date.now()}`,
+      title: newLessonTitle.trim(),
+      subtitle: 'Bài học biên soạn từ AdminCP',
+      grade: newLessonGrade,
+      subjectId: newLessonSubject,
+      unit: newLessonUnit,
+      allyId: 'kien_con',
+      estimatedMinutes: 15,
+      xpReward: newLessonXP,
+      discover: {
+        conceptHeadline: `Khám phá bài học: ${newLessonTitle}`,
+        scenarioStory: 'Câu chuyện tình huống khám phá kiến thức mới.',
+        visualAidType: 'diagram',
+        interactivePrompt: 'Quan sát và trả lời câu hỏi khởi động:',
+        initialQuestion: 'Em nhận xét gì về bài toán trên?',
+        choices: [
+          { text: 'Lựa chọn A (Đúng)', isCorrect: true, feedback: 'Chính xác!' },
+          { text: 'Lựa chọn B', isCorrect: false, feedback: 'Thử lại nhé!' },
+        ],
+      },
+      practice: {
+        totalSteps: 2,
+        questions: [
+          {
+            id: 'q1',
+            prompt: 'Câu hỏi thực hành bước 1',
+            options: ['Đáp án 1', 'Đáp án 2'],
+            correctIndex: 0,
+            explanation: 'Giải thích chi tiết',
+          },
+        ],
+      },
+      apply: {
+        challengeTitle: 'Thử thách vận dụng thực tế',
+        realWorldScenario: 'Áp dụng vào cuộc sống hàng ngày',
+        choices: [
+          {
+            choiceText: 'Giải pháp tối ưu',
+            isOptimal: true,
+            scientificReason: 'Lí do khoa học chuẩn xác',
+          },
+        ],
+        hintStage1: 'Gợi ý bước 1',
+        hintStage2: 'Gợi ý bước 2',
+      },
+      teachBack: {
+        promptTitle: 'Giảng lại bài học cho bạn bè',
+        guidingQuestion: 'Em hãy tóm tắt nội dung trọng tâm bằng lời của mình:',
+        helperBulletPoints: ['Ý chính 1', 'Ý chính 2'],
+        sampleStarters: ['Theo em hiểu...', 'Bước đầu tiên là...'],
+        expectedConcepts: ['khái niệm', 'phương pháp'],
+      },
+    };
+    const updated = [newL, ...managedLessons];
+    setManagedLessons(updated);
+    if (onUpdateLessons) onUpdateLessons(updated);
+    showToast(`Đã xuất bản bài học "${newL.title}" thành công!`);
+    addAudit('Biên soạn bài học mới', newL.title, `Khối Lớp ${newL.grade}, XP: +${newL.xpReward}`);
+    setNewLessonTitle('');
+    setNewLessonModalOpen(false);
+  };
+
+  // Create new admin
+  const handleCreateAdmin = () => {
+    if (!newAdminName.trim() || !newAdminEmail.trim()) {
+      alert('Vui lòng nhập họ tên và email quản trị viên!');
+      return;
+    }
+    const roleConf = ADMIN_ROLES_CONFIG[newAdminRole];
+    const newAdminUser: AdminUser = {
+      id: `admin_${Date.now()}`,
+      name: newAdminName.trim(),
+      email: newAdminEmail.trim(),
+      avatar: roleConf.icon,
+      role: newAdminRole,
+      roleTitle: roleConf.name,
+      permissions: [roleConf.description],
+      lastLogin: 'Chưa đăng nhập',
+      status: 'active',
+    };
+    setStaffList((prev) => [...prev, newAdminUser]);
+    showToast(`Đã cấp quyền cho quản trị viên ${newAdminUser.name}!`);
+    addAudit('Tạo tài khoản quản trị', newAdminUser.name, `Vai trò: ${roleConf.name} (${newAdminUser.email})`);
+    setNewAdminName('');
+    setNewAdminEmail('');
+    setNewAdminModalOpen(false);
+  };
+
   // --------------------------------------------------------------------------
-  // VIEW 1: ADMIN LOGIN GATE (Nếu chưa đăng nhập tài khoản quản lý)
+  // VIEW 1: ADMIN LOGIN GATE (Nếu chưa đăng nhập)
   // --------------------------------------------------------------------------
   if (!currentAdmin) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-stone-900 via-stone-800 to-amber-950 text-white flex flex-col justify-between p-4 sm:p-8">
-        <div className="max-w-5xl mx-auto w-full pt-4">
-          {/* Top back button */}
-          <div className="flex items-center justify-between mb-8">
+      <div className="min-h-screen bg-stone-900 text-white flex flex-col justify-between p-4 sm:p-6 lg:p-8">
+        <div className="max-w-4xl mx-auto w-full pt-4">
+          {/* Top Back bar */}
+          <div className="flex items-center justify-between mb-6">
             <button
               onClick={() => {
                 audioService.playClick();
                 onBackToApp();
               }}
-              className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-stone-200 text-xs sm:text-sm font-bold transition-all"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-stone-200 text-xs sm:text-sm font-bold transition-all"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Quay lại trang học sinh Kiến Học</span>
             </button>
             <div className="flex items-center gap-2 text-xs font-mono bg-amber-500/20 text-amber-300 px-3 py-1.5 rounded-xl border border-amber-500/30">
               <Lock className="w-3.5 h-3.5" />
-              <span>Đường dẫn bảo mật: /admincp</span>
+              <span>/admincp</span>
             </div>
           </div>
 
-          {/* Login Card & Demo Accounts Table */}
-          <div className="bg-stone-900/90 border-2 border-stone-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
-            <div className="text-center max-w-2xl mx-auto mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-red-500 flex items-center justify-center text-3xl shadow-xl mx-auto mb-4 border-2 border-amber-300/40">
+          {/* Login Card */}
+          <div className="bg-stone-800/90 border border-stone-700 rounded-3xl p-6 sm:p-8 shadow-2xl">
+            <div className="text-center max-w-xl mx-auto mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-3xl shadow-lg mx-auto mb-3 border border-amber-300/40">
                 🛡️
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-2">
-                HỆ THỐNG QUẢN TRỊ KIẾN HỌC (ADMINCP)
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-1.5">
+                CỔNG ĐIỀU HÀNH KIẾN HỌC • ADMINCP
               </h1>
               <p className="text-xs sm:text-sm text-stone-400">
-                Khu vực giới hạn chỉ dành riêng cho Ban Giám Hiệu, Trưởng Bộ Môn & Kỹ Thuật Viên. Vui lòng đăng nhập hoặc chọn tài khoản quản trị demo bên dưới.
+                Khu vực dành cho Ban Giám Hiệu, Trưởng Bộ Môn & Quản Trị Viên. Vui lòng đăng nhập hoặc chọn 1 tài khoản quản trị demo bên dưới.
               </p>
             </div>
 
-            {/* Login Form */}
-            <form onSubmit={handleLogin} className="max-w-md mx-auto mb-10 space-y-3">
+            {/* Email login form */}
+            <form onSubmit={handleLogin} className="max-w-md mx-auto mb-8 space-y-3">
               <div>
                 <label className="block text-xs font-bold text-stone-300 mb-1">
                   Email Quản Trị Viên
@@ -208,10 +670,10 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
                   <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                   <input
                     type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
                     placeholder="mkt.thecliffresort@gmail.com"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-stone-800 border border-stone-700 focus:border-amber-500 text-xs sm:text-sm text-white placeholder-stone-500 outline-none"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-stone-900 border border-stone-700 focus:border-amber-500 text-xs sm:text-sm text-white placeholder-stone-500 outline-none"
                   />
                 </div>
               </div>
@@ -224,10 +686,10 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
                   <Key className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                   <input
                     type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-stone-800 border border-stone-700 focus:border-amber-500 text-xs sm:text-sm text-white placeholder-stone-500 outline-none"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-stone-900 border border-stone-700 focus:border-amber-500 text-xs sm:text-sm text-white placeholder-stone-500 outline-none"
                   />
                 </div>
               </div>
@@ -241,648 +703,1497 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 font-black text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-98"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-all active:scale-98"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Đăng Nhập Vào Ban Quản Trị</span>
               </button>
             </form>
 
-            {/* Demo Accounts Table (Exact match to Image 4) */}
-            <div className="border-t border-stone-700/80 pt-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                <div>
-                  <h3 className="text-sm sm:text-base font-black text-amber-400 flex items-center gap-2">
-                    <span>👑</span>
-                    <span>DANH SÁCH TÀI KHOẢN QUẢN LÝ DEMO (CLICK ĐÓNG VAI ĐỂ TRUY CẬP NHANH)</span>
-                  </h3>
-                  <p className="text-xs text-stone-400">
-                    Chọn nhanh một trong các vai trò quản trị để trải nghiệm đầy đủ quyền hạn phân cấp:
-                  </p>
-                </div>
-                <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
-                  {DEMO_ADMINS.length} Tài khoản hoạt động
-                </span>
-              </div>
-
-              <div className="overflow-x-auto rounded-2xl border border-stone-700">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-stone-800/80 text-stone-300 border-b border-stone-700 font-bold uppercase tracking-wider text-[11px]">
-                      <th className="py-3 px-4">Quản Trị Viên</th>
-                      <th className="py-3 px-3">Vai Trò Quản Trị</th>
-                      <th className="py-3 px-3">Quyền Hạn Chi Tiết</th>
-                      <th className="py-3 px-3">Đăng Nhập Gần Nhất</th>
-                      <th className="py-3 px-3 text-center">Trạng Thái</th>
-                      <th className="py-3 px-3 text-right">Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-800 text-stone-200">
-                    {DEMO_ADMINS.map((admin) => (
-                      <tr key={admin.id} className="hover:bg-stone-800/50 transition-colors">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-xl shrink-0">{admin.avatar}</span>
-                            <div>
-                              <div className="font-black text-white">{admin.name}</div>
-                              <div className="text-[11px] text-stone-400 font-mono">{admin.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full font-bold text-[11px] border ${
-                              admin.role === 'super_admin'
-                                ? 'bg-rose-950/60 text-rose-300 border-rose-500/50'
-                                : admin.role === 'lesson_manager'
-                                ? 'bg-blue-950/60 text-blue-300 border-blue-500/50'
-                                : admin.role === 'subject_manager'
-                                ? 'bg-purple-950/60 text-purple-300 border-purple-500/50'
-                                : admin.role === 'grade_manager'
-                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/50'
-                                : admin.role === 'content_manager'
-                                ? 'bg-amber-950/60 text-amber-300 border-amber-500/50'
-                                : 'bg-pink-950/60 text-pink-300 border-pink-500/50'
-                            }`}
-                          >
-                            {admin.roleTitle}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 font-mono text-[11px] text-stone-300 max-w-[240px] truncate">
-                          {admin.permissions.join(', ')}
-                        </td>
-                        <td className="py-3 px-3 text-stone-400 text-[11px]">
-                          {admin.lastLogin}
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-bold">
-                            Hoạt động
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleImpersonate(admin.id)}
-                            className="px-3 py-1.5 rounded-xl bg-stone-700 hover:bg-amber-500 hover:text-stone-950 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
-                          >
-                            Đóng Vai
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Quick Demo 1-Click Select */}
+            <div className="border-t border-stone-700 pt-6">
+              <h3 className="text-xs sm:text-sm font-black text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <span>👑</span>
+                <span>Tài Khoản Quản Lý Mẫu (1-Click Đóng Vai Nhanh):</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                {DEMO_ADMINS.map((admin) => (
+                  <button
+                    key={admin.id}
+                    onClick={() => handleImpersonate(admin.id)}
+                    className="p-3 rounded-2xl bg-stone-900/80 hover:bg-stone-700/80 border border-stone-700 text-left transition-all hover:scale-102 flex items-center gap-3 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-stone-800 flex items-center justify-center text-xl shrink-0 group-hover:bg-amber-500/20">
+                      {admin.avatar}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-black text-white truncate">{admin.name}</div>
+                      <div className="text-[11px] text-amber-400 font-semibold truncate">{admin.roleTitle}</div>
+                      <div className="text-[10px] text-stone-400 truncate">{admin.email}</div>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="max-w-5xl mx-auto w-full pt-6 pb-2 text-center text-xs text-stone-500">
-          Kiến Học Admin Control Panel • Hệ thống phân quyền RBAC & Quản trị trung tâm
+        <div className="text-center text-[11px] text-stone-500 pt-6">
+          Kiến Học AdminCP • Bảo Mật RBAC Chuẩn Bảng Riêng admin_users & Supabase
         </div>
       </div>
     );
   }
 
   // --------------------------------------------------------------------------
-  // VIEW 2: AUTHENTICATED ADMIN DASHBOARD (/admincp)
+  // VIEW 2: FULL RESPONSIVE DASHBOARD (ADMIN PORTAL DIRECTLY)
   // --------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-stone-100 text-stone-900 flex flex-col">
-      {/* AdminCP Sticky Header */}
-      <header className="sticky top-0 z-40 bg-stone-900 text-white border-b-2 border-amber-500/50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-xl shadow-md border border-amber-300/40">
-              🛡️
+    <div className="min-h-screen bg-stone-100 text-stone-900 flex flex-col font-sans">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-stone-900 text-white px-4 py-2.5 rounded-2xl shadow-xl border border-stone-700 text-xs sm:text-sm font-bold animate-bounce-short">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* TOP HEADER: Clean, crisp, professional (Matching Image 5) */}
+      <header className="bg-stone-900 text-white border-b border-stone-800 sticky top-0 z-40 shadow-md">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+          {/* Left: Mobile hamburger + Logo & Portal Title */}
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Hamburger button visible on mobile & tablet */}
+            <button
+              onClick={() => {
+                audioService.playClick();
+                setMobileMenuOpen(!mobileMenuOpen);
+              }}
+              className="lg:hidden p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200"
+              title="Menu Phân Hệ"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-xl shadow-md border border-amber-300/40 shrink-0">
+              🐜
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-sm sm:text-base tracking-tight text-white">
-                  KIẾN HỌC ADMINCP
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30">
-                  /admincp
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-black text-base sm:text-lg lg:text-xl tracking-tight text-white whitespace-nowrap">
+                  KIẾN HỌC • TRANG QUẢN TRỊ
+                </h1>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-wider shrink-0">
+                  Admin Portal
                 </span>
               </div>
-              <p className="text-[11px] text-stone-400">Hệ Thống Quản Trị & Điều Hành Trung Tâm</p>
+              <p className="text-[11px] text-stone-400 hidden md:block truncate">
+                Hệ thống quản lý toàn diện: Bài học, Môn học, Lớp học, Nội dung & Học viên
+              </p>
             </div>
           </div>
 
-          {/* Current Admin Badge & Controls */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2.5 bg-stone-800/90 px-3 py-1.5 rounded-2xl border border-stone-700">
-              <span className="text-xl">{currentAdmin.avatar}</span>
-              <div className="text-left">
-                <div className="text-xs font-black text-white">{currentAdmin.name}</div>
-                <div className="text-[10px] text-amber-400 font-bold">{currentAdmin.roleTitle}</div>
-              </div>
+          {/* Right: Role Switcher & Navigation actions */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Role dropdown switcher */}
+            <div className="flex items-center bg-stone-800/90 border border-stone-700 rounded-2xl px-2.5 py-1 text-xs">
+              <span className="text-stone-400 mr-1.5 text-[11px] hidden sm:inline">Đang đóng vai:</span>
+              <select
+                value={currentAdmin.role}
+                onChange={(e) => {
+                  const role = e.target.value as AdminRole;
+                  const targetAdmin = DEMO_ADMINS.find((a) => a.role === role);
+                  if (targetAdmin) {
+                    handleImpersonate(targetAdmin.id);
+                  }
+                }}
+                className="bg-transparent text-amber-300 font-bold focus:outline-none cursor-pointer text-xs"
+              >
+                {Object.values(ADMIN_ROLES_CONFIG).map((r) => (
+                  <option key={r.role} value={r.role} className="bg-stone-900 text-white font-medium">
+                    {r.icon} {r.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
+            {/* Back to App */}
             <button
               onClick={() => {
                 audioService.playClick();
                 onBackToApp();
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold border border-stone-700 transition-colors"
-              title="Mở giao diện học tập của học sinh"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold border border-stone-700 transition-colors flex items-center gap-1.5"
+              title="Về ứng dụng học tập học sinh"
             >
-              <Eye className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden md:inline">Xem Học Sinh</span>
+              <Eye className="w-4 h-4 text-amber-400" />
+              <span className="hidden md:inline">Về Học Sinh</span>
             </button>
 
+            {/* Logout */}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 text-xs font-bold transition-colors"
-              title="Đăng xuất khỏi phiên Admin"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 text-xs font-bold transition-colors flex items-center gap-1"
+              title="Đăng xuất quản trị"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Thoát</span>
+              <LogOut className="w-4 h-4" />
+              <span className="hidden md:inline">Thoát</span>
             </button>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="bg-stone-950 border-t border-stone-800">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-1 overflow-x-auto py-1">
-            <button
-              onClick={() => {
-                audioService.playClick();
-                setActiveTab('portal');
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === 'portal'
-                  ? 'bg-amber-500 text-stone-950 shadow-sm font-black'
-                  : 'text-stone-400 hover:text-white hover:bg-stone-800'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Quản Trị Hệ Thống (Bài Học, Môn Học, Lớp)</span>
-            </button>
+        {/* SUBHEADER: Active role indicator & Realtime status (Image 5) */}
+        <div className="bg-stone-950 px-4 sm:px-6 lg:px-8 py-2 border-t border-stone-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-base">{activeRoleConfig.icon}</span>
+            <span className="font-black text-white">{currentAdmin.name}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${activeRoleConfig.badgeColor}`}>
+              {activeRoleConfig.shortTitle}
+            </span>
+          </div>
 
-            <button
-              onClick={() => {
-                audioService.playClick();
-                setActiveTab('database');
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === 'database'
-                  ? 'bg-amber-500 text-stone-950 shadow-sm font-black'
-                  : 'text-stone-400 hover:text-white hover:bg-stone-800'
-              }`}
-            >
-              <Database className="w-4 h-4" />
-              <span>Quản Lý CSDL Supabase</span>
-            </button>
-
-            <button
-              onClick={() => {
-                audioService.playClick();
-                setActiveTab('production');
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === 'production'
-                  ? 'bg-amber-500 text-stone-950 shadow-sm font-black'
-                  : 'text-stone-400 hover:text-white hover:bg-stone-800'
-              }`}
-            >
-              <Wrench className="w-4 h-4" />
-              <span>Chẩn Đoán Production</span>
-            </button>
-
-            <button
-              onClick={() => {
-                audioService.playClick();
-                setActiveTab('staff');
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === 'staff'
-                  ? 'bg-amber-500 text-stone-950 shadow-sm font-black'
-                  : 'text-stone-400 hover:text-white hover:bg-stone-800'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Quản Lý Admin & Đổi Vai (RBAC)</span>
-            </button>
+          <div className="flex items-center gap-2 text-stone-400 text-[11px]">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="hidden sm:inline">Phiên quản trị an toàn (Supabase Live / admin_users)</span>
+            <span className="sm:hidden">Supabase Live</span>
           </div>
         </div>
       </header>
 
-      {/* Main Tab Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8">
-        {/* ================================================================= */}
-        {/* TAB 1: QUẢN TRỊ HỆ THỐNG */}
-        {/* ================================================================= */}
-        {activeTab === 'portal' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-3xl p-6 border-2 border-stone-200 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
-                <div>
-                  <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
-                    <ShieldCheck className="w-6 h-6 text-amber-600" />
-                    <span>Trung Tâm Điều Hành Kiến Thức</span>
-                  </h2>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    Quản lý toàn diện bài học Lớp 5 & Lớp 8, chuyên đề KHTN, danh mục môn học và nhiệm vụ hàng ngày
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    audioService.playClick();
-                    setShowSubPortal(true);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-105 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Mở Cửa Sổ Soạn Bài & Phân Quyền Chi Tiết</span>
-                </button>
-              </div>
-
-              {/* Statistics Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
-                  <div className="text-xs font-bold text-amber-800">Tổng Bài Học</div>
-                  <div className="text-2xl font-black text-amber-950 mt-1">{lessons.length}</div>
-                  <div className="text-[11px] text-amber-700 mt-1">Chuẩn 4 bước tư duy</div>
-                </div>
-                <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200">
-                  <div className="text-xs font-bold text-purple-800">Môn Học & Chuyên Đề</div>
-                  <div className="text-2xl font-black text-purple-950 mt-1">{subjects.length}</div>
-                  <div className="text-[11px] text-purple-700 mt-1">Toán, KHTN, Lịch Sử - Địa Lí</div>
-                </div>
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
-                  <div className="text-xs font-bold text-emerald-800">Nhiệm Vụ Hằng Ngày</div>
-                  <div className="text-2xl font-black text-emerald-950 mt-1">{quests.length}</div>
-                  <div className="text-[11px] text-emerald-700 mt-1">Tích lũy XP & duy trì Streak</div>
-                </div>
-                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200">
-                  <div className="text-xs font-bold text-blue-800">Quyền Hiện Tại</div>
-                  <div className="text-sm font-black text-blue-950 mt-1 truncate">{currentAdmin.roleTitle}</div>
-                  <div className="text-[11px] text-blue-700 mt-1 font-mono truncate">{currentAdmin.permissions.join(', ')}</div>
-                </div>
-              </div>
-
-              {/* Lessons Overview Table */}
-              <div className="mt-8">
-                <h3 className="text-sm font-black text-stone-800 uppercase tracking-wider mb-3">
-                  Danh sách bài học gần đây
-                </h3>
-                <div className="overflow-x-auto rounded-2xl border border-stone-200">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-stone-50 border-b border-stone-200 text-stone-500 font-bold uppercase text-[11px]">
-                        <th className="py-2.5 px-4">Bài học</th>
-                        <th className="py-2.5 px-3">Khối Lớp</th>
-                        <th className="py-2.5 px-3">Môn Học</th>
-                        <th className="py-2.5 px-3">Hạt Đường XP</th>
-                        <th className="py-2.5 px-3">Trạng Thái</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100">
-                      {lessons.slice(0, 5).map((l) => (
-                        <tr key={l.id} className="hover:bg-amber-50/50">
-                          <td className="py-3 px-4 font-bold text-stone-900">{l.title}</td>
-                          <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 font-bold text-[10px]">
-                              Lớp {l.grade}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-stone-600 font-medium">{l.subjectId}</td>
-                          <td className="py-3 px-3 font-black text-amber-700">+{l.rewardXp} XP</td>
-                          <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                              Đã xuất bản
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* DASHBOARD BODY CONTAINER: Responsive Sidebar + Content */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* MOBILE SIDEBAR DRAWER OVERLAY */}
+        {mobileMenuOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden backdrop-blur-xs"
+            onClick={() => setMobileMenuOpen(false)}
+          />
         )}
 
-        {/* ================================================================= */}
-        {/* TAB 2: QUẢN LÝ CSDL SUPABASE */}
-        {/* ================================================================= */}
-        {activeTab === 'database' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-3xl p-6 border-2 border-stone-200 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
-                <div>
-                  <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
-                    <Database className="w-6 h-6 text-emerald-600" />
-                    <span>Cơ Sở Dữ Liệu Supabase PostgreSQL</span>
-                  </h2>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    Quản lý kết nối, đồng bộ hồ sơ, kiểm tra độ trễ phản hồi máy chủ và sơ đồ bảng
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    disabled={dbTesting}
-                    onClick={handleTestDatabase}
-                    className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold flex items-center gap-2 border border-stone-300 transition-all"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${dbTesting ? 'animate-spin text-amber-600' : ''}`} />
-                    <span>{dbTesting ? 'Đang Kiểm Tra...' : 'Kiểm Tra Kết Nối'}</span>
-                  </button>
-                  <button
-                    disabled={dbSyncing}
-                    onClick={handleSyncDatabase}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${dbSyncing ? 'animate-spin' : ''}`} />
-                    <span>{dbSyncing ? 'Đang Đồng Bộ...' : 'Đồng Bộ Hồ Sơ Ngay'}</span>
-                  </button>
-                </div>
-              </div>
+        {/* SIDEBAR NAVIGATION: Responsive (Desktop fixed / Mobile Drawer) */}
+        <aside
+          className={`fixed lg:static top-0 bottom-0 left-0 z-50 lg:z-10 w-64 bg-stone-900 border-r border-stone-800 flex flex-col justify-between transition-transform duration-300 ease-in-out ${
+            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          }`}
+        >
+          {/* Mobile drawer header */}
+          <div className="p-4 border-b border-stone-800 flex lg:hidden items-center justify-between text-white">
+            <span className="font-black text-sm tracking-tight text-amber-400">DANH MỤC QUẢN TRỊ</span>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-1 rounded-lg text-stone-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-              {/* Status Banner */}
-              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full ${
-                        dbStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+          {/* Menu Sections */}
+          <div className="p-3 space-y-6 overflow-y-auto flex-1">
+            {/* GROUP 1: PHÂN HỆ QUẢN LÝ */}
+            <div>
+              <div className="px-3 mb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">
+                PHÂN HỆ QUẢN LÝ
+              </div>
+              <nav className="space-y-1">
+                {[
+                  { id: 'overview', label: 'Tổng Quan', icon: Activity },
+                  { id: 'lessons', label: 'Quản Lý Bài Học', icon: BookOpen },
+                  { id: 'subjects', label: 'Quản Lý Môn Học', icon: Layers },
+                  { id: 'classes', label: 'Quản Lý Lớp', icon: School },
+                  { id: 'content', label: 'Quản Lý Nội Dung', icon: FileText },
+                  { id: 'students', label: 'Quản Lý Học Viên', icon: GraduationCap },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  const allowed = canAccessTab(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      disabled={!allowed}
+                      onClick={() => {
+                        audioService.playClick();
+                        setActiveTab(item.id as any);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                        isActive
+                          ? 'bg-amber-500 text-stone-950 font-black shadow-sm'
+                          : allowed
+                          ? 'text-stone-300 hover:bg-stone-800 hover:text-white'
+                          : 'text-stone-600 cursor-not-allowed opacity-50'
                       }`}
-                    />
-                    <span className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      {dbStatus.connected ? 'Supabase Online (Đang hoạt động)' : 'Chế độ Local Fallback'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-stone-600">{dbStatus.message}</p>
-                </div>
-                {dbStatus.latencyMs !== undefined && (
-                  <div className="text-xs font-black px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    Ping Server: {dbStatus.latencyMs} ms
-                  </div>
-                )}
-              </div>
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-stone-950' : 'text-stone-400'}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      {!allowed && <Lock className="w-3 h-3 text-stone-600" />}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
 
-              {syncMessage && (
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{syncMessage}</span>
+            {/* GROUP 2: HỆ THỐNG */}
+            <div>
+              <div className="px-3 mb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">
+                HỆ THỐNG
+              </div>
+              <nav className="space-y-1">
+                {[
+                  { id: 'staff', label: 'Nhân Sự & Quyền', icon: Users },
+                  { id: 'database', label: 'Quản Lý CSDL Supabase', icon: Database },
+                  { id: 'production', label: 'Chẩn Đoán & Nhật Ký', icon: Wrench },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  const allowed = canAccessTab(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      disabled={!allowed}
+                      onClick={() => {
+                        audioService.playClick();
+                        setActiveTab(item.id as any);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                        isActive
+                          ? 'bg-amber-500 text-stone-950 font-black shadow-sm'
+                          : allowed
+                          ? 'text-stone-300 hover:bg-stone-800 hover:text-white'
+                          : 'text-stone-600 cursor-not-allowed opacity-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-stone-950' : 'text-stone-400'}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      {!allowed && <Lock className="w-3 h-3 text-stone-600" />}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          </div>
+
+          {/* Sidebar bottom admin profile summary */}
+          <div className="p-3 border-t border-stone-800 bg-stone-950/60">
+            <div className="flex items-center gap-2.5 p-2 rounded-xl bg-stone-900 border border-stone-800">
+              <span className="text-xl">{currentAdmin.avatar}</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-black text-white truncate">{currentAdmin.name}</div>
+                <div className="text-[10px] text-amber-400 font-semibold truncate">{currentAdmin.roleTitle}</div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-rose-400 hover:bg-stone-800"
+                title="Đăng xuất"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* MAIN DASHBOARD CONTENT AREA: Responsive (Desktop / Tablet / Mobile) */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {/* RBAC PERMISSION WARNING IF ACCESSING RESTRICTED TAB */}
+          {!canAccessTab(activeTab) && (
+            <div className="bg-rose-50 border-2 border-rose-200 rounded-3xl p-6 text-center max-w-lg mx-auto my-8">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl mx-auto mb-3">
+                <Lock className="w-6 h-6" />
+              </div>
+              <h3 className="font-black text-base text-rose-950 mb-1">
+                Quyền Hạn Bị Giới Hạn Theo Vai Trò
+              </h3>
+              <p className="text-xs text-rose-800 mb-4">
+                Vai trò <strong>{activeRoleConfig.name}</strong> không có quyền quản lý phân hệ này. Vui lòng chuyển sang vai trò Super Admin để truy cập.
+              </p>
+              <button
+                onClick={() => {
+                  const superAdmin = DEMO_ADMINS.find((a) => a.role === 'super_admin');
+                  if (superAdmin) handleImpersonate(superAdmin.id);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 shadow-sm"
+              >
+                Chuyển Sang Super Admin
+              </button>
+            </div>
+          )}
+
+          {canAccessTab(activeTab) && (
+            <>
+              {/* ========================================================= */}
+              {/* TAB 1: TỔNG QUAN (OVERVIEW - Exact Match to Image 5 & 1)   */}
+              {/* ========================================================= */}
+              {activeTab === 'overview' && (
+                <div className="space-y-6">
+                  {/* Top Header */}
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                      Tổng Quan Hệ Thống Kiến Học
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                      Báo cáo tổng hợp số liệu thực tế về bài học, môn học, lớp học và học viên.
+                    </p>
+                  </div>
+
+                  {/* 4 STAT METRIC CARDS (Responsive: 1 col on mobile, 2 col on tablet, 4 col on desktop) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Card 1: Tổng bài học */}
+                    <div className="bg-amber-50/60 border border-amber-200/80 rounded-3xl p-5 shadow-2xs relative overflow-hidden">
+                      <div className="flex items-center justify-between text-amber-900 mb-2">
+                        <span className="text-xs font-black uppercase tracking-wider">Tổng Bài Học</span>
+                        <BookOpen className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div className="text-3xl sm:text-4xl font-black text-stone-950 mb-1">
+                        {managedLessons.length}
+                      </div>
+                      <div className="text-xs text-amber-800 font-semibold">
+                        Lớp 5: {managedLessons.filter((l) => l.grade === 5).length} bài • Lớp 8:{' '}
+                        {managedLessons.filter((l) => l.grade === 8).length} bài
+                      </div>
+                    </div>
+
+                    {/* Card 2: Môn học hoạt động */}
+                    <div className="bg-sky-50/60 border border-sky-200/80 rounded-3xl p-5 shadow-2xs relative overflow-hidden">
+                      <div className="flex items-center justify-between text-sky-900 mb-2">
+                        <span className="text-xs font-black uppercase tracking-wider">Môn Học Hoạt Động</span>
+                        <Layers className="w-5 h-5 text-sky-600" />
+                      </div>
+                      <div className="text-3xl sm:text-4xl font-black text-stone-950 mb-1">
+                        {managedSubjects.length}
+                      </div>
+                      <div className="text-xs text-sky-800 font-semibold truncate">
+                        Toán học, KHTN (Lí, Hóa, Sinh)...
+                      </div>
+                    </div>
+
+                    {/* Card 3: Lớp học vận hành */}
+                    <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-3xl p-5 shadow-2xs relative overflow-hidden">
+                      <div className="flex items-center justify-between text-emerald-900 mb-2">
+                        <span className="text-xs font-black uppercase tracking-wider">Lớp Học Vận Hành</span>
+                        <School className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div className="text-3xl sm:text-4xl font-black text-stone-950 mb-1">
+                        {classesList.length}
+                      </div>
+                      <div className="text-xs text-emerald-800 font-semibold">
+                        Tổng {classesList.reduce((acc, c) => acc + c.studentCount, 0)} học sinh theo lớp
+                      </div>
+                    </div>
+
+                    {/* Card 4: Đội ngũ quản trị */}
+                    <div className="bg-purple-50/60 border border-purple-200/80 rounded-3xl p-5 shadow-2xs relative overflow-hidden">
+                      <div className="flex items-center justify-between text-purple-900 mb-2">
+                        <span className="text-xs font-black uppercase tracking-wider">Đội Ngũ Quản Trị</span>
+                        <ShieldCheck className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div className="text-3xl sm:text-4xl font-black text-stone-950 mb-1">
+                        {staffList.length}
+                      </div>
+                      <div className="text-xs text-purple-800 font-semibold">
+                        6 chức danh quản trị phân quyền
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CƠ CẤU PHÂN QUYỀN QUẢN LÝ (ADMIN ROLES) - Interactive switching grid */}
+                  <div className="bg-white border border-stone-200 rounded-3xl p-5 sm:p-6 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-4">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-amber-600" />
+                        <h3 className="font-black text-sm sm:text-base text-stone-900 uppercase tracking-tight">
+                          CƠ CẤU PHÂN QUYỀN QUẢN LÝ (ADMIN ROLES)
+                        </h3>
+                      </div>
+                      <span className="text-xs text-stone-500 font-medium">
+                        Nhấp để xem hoặc chuyển đổi quyền đóng vai
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {Object.values(ADMIN_ROLES_CONFIG).map((roleItem) => {
+                        const isSelected = currentAdmin.role === roleItem.role;
+                        const matchingAdmin = staffList.find((a) => a.role === roleItem.role);
+                        return (
+                          <div
+                            key={roleItem.role}
+                            onClick={() => {
+                              if (matchingAdmin) handleImpersonate(matchingAdmin.id);
+                            }}
+                            className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between ${
+                              isSelected
+                                ? 'bg-amber-50/50 border-amber-400 ring-2 ring-amber-400/20 shadow-xs'
+                                : 'bg-stone-50/50 border-stone-200 hover:border-stone-300 hover:bg-stone-100/50'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xl">{roleItem.icon}</span>
+                                  <span className="font-black text-xs sm:text-sm text-stone-900">
+                                    {roleItem.name}
+                                  </span>
+                                </div>
+                                {isSelected ? (
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-stone-950 text-[10px] font-black">
+                                    Đang chọn
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-stone-400 font-semibold">Đóng vai</span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-stone-600 line-clamp-3 leading-relaxed mb-3">
+                                {roleItem.description}
+                              </p>
+                            </div>
+
+                            {matchingAdmin && (
+                              <div className="pt-2 border-t border-stone-200/80 flex items-center justify-between text-[11px] text-stone-500">
+                                <span className="font-bold truncate">{matchingAdmin.name}</span>
+                                <span className="text-[10px] font-mono text-stone-400">{matchingAdmin.email}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* QUICK SHORTCUTS & ACTIVITY FEED */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Quick shortcuts */}
+                    <div className="bg-white border border-stone-200 rounded-3xl p-5 shadow-xs space-y-3">
+                      <h3 className="font-black text-sm text-stone-900 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-amber-500" />
+                        <span>Phím Tắt Thao Tác Nhanh</span>
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                          onClick={() => {
+                            audioService.playClick();
+                            setNewLessonModalOpen(true);
+                          }}
+                          className="p-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition-colors"
+                        >
+                          <div className="font-black text-xs text-amber-950 flex items-center gap-1.5 mb-1">
+                            <Plus className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Thêm Bài Học Mới</span>
+                          </div>
+                          <div className="text-[11px] text-amber-800">Biên soạn 4 bước học tập</div>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            audioService.playClick();
+                            setNewClassModalOpen(true);
+                          }}
+                          className="p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-left transition-colors"
+                        >
+                          <div className="font-black text-xs text-emerald-950 flex items-center gap-1.5 mb-1">
+                            <School className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>Tạo Lớp Học Mới</span>
+                          </div>
+                          <div className="text-[11px] text-emerald-800">Khối Lớp 5 & Lớp 8</div>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            audioService.playClick();
+                            setActiveTab('database');
+                          }}
+                          className="p-3 rounded-2xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-left transition-colors"
+                        >
+                          <div className="font-black text-xs text-sky-950 flex items-center gap-1.5 mb-1">
+                            <Database className="w-3.5 h-3.5 text-sky-700" />
+                            <span>Kiểm Tra CSDL</span>
+                          </div>
+                          <div className="text-[11px] text-sky-800">Supabase live latency</div>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            audioService.playClick();
+                            setActiveTab('production');
+                          }}
+                          className="p-3 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-left transition-colors"
+                        >
+                          <div className="font-black text-xs text-purple-950 flex items-center gap-1.5 mb-1">
+                            <Wrench className="w-3.5 h-3.5 text-purple-700" />
+                            <span>Chẩn Đoán Server</span>
+                          </div>
+                          <div className="text-[11px] text-purple-800">Kiểm tra production live</div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Recent audit activity */}
+                    <div className="bg-white border border-stone-200 rounded-3xl p-5 shadow-xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-black text-sm text-stone-900 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-stone-500" />
+                          <span>Nhật Ký Thao Tác Gần Nhất</span>
+                        </h3>
+                        <button
+                          onClick={() => setActiveTab('production')}
+                          className="text-xs font-bold text-amber-600 hover:text-amber-700"
+                        >
+                          Xem tất cả →
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {auditLogs.slice(0, 3).map((log) => (
+                          <div key={log.id} className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-black text-stone-900">{log.action}</span>
+                              <span className="text-[10px] text-stone-400">{log.timestamp}</span>
+                            </div>
+                            <div className="text-[11px] text-stone-600 truncate">{log.target}: {log.details}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Database Entities Architecture */}
-              <div>
-                <h3 className="text-xs font-black text-stone-800 uppercase tracking-wider mb-3">
-                  Kiến Trúc Mô Hình Bảng Dữ Liệu (Supabase Centralized Schema)
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200">
-                    <span className="font-black text-stone-900 block mb-1">👤 users</span>
-                    <span className="text-stone-500 leading-relaxed block text-[11px]">
-                      Lưu trữ hồ sơ học sinh: auth_id (UUID), username (cố định), họ tên, email, phone, lớp (5/8), avatar thú cưng, tổng điểm XP, chuỗi ngày streak.
-                    </span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200">
-                    <span className="font-black text-purple-950 block mb-1">👑 admin_users / staff_accounts</span>
-                    <span className="text-purple-900/80 leading-relaxed block text-[11px]">
-                      Bảng riêng biệt cho Ban Quản Trị & Nhân sự, lưu permissions mảng, phòng ban, roleTitle và audit logs bảo mật chống leo thang đặc quyền.
-                    </span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200">
-                    <span className="font-black text-stone-900 block mb-1">📚 lessons & lesson_steps</span>
-                    <span className="text-stone-500 leading-relaxed block text-[11px]">
-                      Lưu trữ bài học động 4 bước tư duy: Khám phá, Luyện tập, Vận dụng, Giảng lại với hình ảnh và điểm thưởng.
-                    </span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200">
-                    <span className="font-black text-stone-900 block mb-1">🎯 questions & question_tags</span>
-                    <span className="text-stone-500 leading-relaxed block text-[11px]">
-                      Ngân hàng câu hỏi trắc nghiệm tập trung phục vụ Đấu trường 60s, Kiến đố vui và kiểm tra định kỳ.
-                    </span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200">
-                    <span className="font-black text-stone-900 block mb-1">⏱️ user_lesson_progress</span>
-                    <span className="text-stone-500 leading-relaxed block text-[11px]">
-                      Lưu tiến độ từng bài học của học sinh, số sao đạt được, thời gian hoàn thành và số lần thử.
-                    </span>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200">
-                    <span className="font-black text-stone-900 block mb-1">🏆 get_weekly_leaderboard (RPC)</span>
-                    <span className="text-stone-500 leading-relaxed block text-[11px]">
-                      Function SQL tính toán bảng xếp hạng realtime theo tuần, chia theo khối lớp 5 và 8.
-                    </span>
-                  </div>
-                </div>
-              </div>
+              {/* ========================================================= */}
+              {/* TAB 2: QUẢN LÝ BÀI HỌC (LESSONS)                          */}
+              {/* ========================================================= */}
+              {activeTab === 'lessons' && (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                        Quản Lý Bài Học Chuẩn 4 Bước
+                      </h2>
+                      <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                        Cấu trúc 4 giai đoạn: Khám phá • Luyện tập • Vận dụng • Giảng lại
+                      </p>
+                    </div>
 
-              {/* SQL Script info */}
-              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-stone-700">
-                <div className="flex items-center gap-2 font-black text-amber-900 mb-1">
-                  <FileCode className="w-4 h-4 text-amber-600" />
-                  <span>Kịch Bản SQL Hoàn Chỉnh Tại: supabase/schema.sql & supabase/seed.sql</span>
-                </div>
-                <p className="text-[11px] text-stone-600 leading-relaxed">
-                  Đầy đủ quan hệ khóa ngoại (Foreign Keys), chỉ mục (Indexes), chính sách phân quyền RLS (Row Level Security) và mã nguồn stored procedures.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================================================================= */}
-        {/* TAB 3: CHẨN ĐOÁN PRODUCTION */}
-        {/* ================================================================= */}
-        {activeTab === 'production' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-3xl p-6 border-2 border-stone-200 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
-                <div>
-                  <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
-                    <Wrench className="w-6 h-6 text-amber-600" />
-                    <span>Bộ Công Cụ Chẩn Đoán Production</span>
-                  </h2>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    Kiểm tra gửi email OTP / SMTP, biến môi trường, Live Logs Console và chuẩn đoán API Supabase
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    audioService.playClick();
-                    setShowSubDebug(true);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all"
-                >
-                  <Activity className="w-4 h-4" />
-                  <span>Mở Bảng Điều Khiển Chẩn Đoán Live Logs</span>
-                </button>
-              </div>
-
-              {/* Quick Health Status Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-stone-700">Supabase Auth & API</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <button
+                      onClick={() => {
+                        audioService.playClick();
+                        setNewLessonModalOpen(true);
+                      }}
+                      className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-all shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Thêm Bài Học Mới</span>
+                    </button>
                   </div>
-                  <div className="text-lg font-black text-stone-900">Hoạt Động</div>
-                  <p className="text-[11px] text-stone-500 mt-1">Xác thực OTP & JWT Session sẵn sàng</p>
-                </div>
 
-                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-stone-700">Cấu Hình Email SMTP</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  </div>
-                  <div className="text-lg font-black text-stone-900">SMTP Custom</div>
-                  <p className="text-[11px] text-stone-500 mt-1">Gửi mail kích hoạt với mẫu Kiến Học</p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-stone-700">Môi Trường Triển Khai</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                  </div>
-                  <div className="text-lg font-black text-stone-900">Production / Vite</div>
-                  <p className="text-[11px] text-stone-500 mt-1">Single-Page App với Route /admincp</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================================================================= */}
-        {/* TAB 4: QUẢN LÝ ADMIN & PHÂN QUYỀN RBAC (IMAGE 4) */}
-        {/* ================================================================= */}
-        {activeTab === 'staff' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-3xl p-6 border-2 border-stone-200 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
-                <div>
-                  <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
-                    <Users className="w-6 h-6 text-purple-600" />
-                    <span>Danh Sách Quản Trị Viên & Phân Quyền Chi Tiết</span>
-                  </h2>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    Hệ thống phân quyền Role-Based Access Control (RBAC). Bạn có thể bấm "Đóng Vai" để đổi ngay sang tài khoản quản lý khác.
-                  </p>
-                </div>
-                <div className="text-xs font-bold px-3 py-1.5 rounded-xl bg-purple-50 text-purple-900 border border-purple-200">
-                  Đang đóng vai: <strong className="font-black">{currentAdmin.name}</strong> ({currentAdmin.roleTitle})
-                </div>
-              </div>
-
-              {/* Exact Table from Image 4 */}
-              <div className="overflow-x-auto rounded-2xl border border-stone-200 mt-6">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-stone-50 border-b border-stone-200 text-stone-500 font-bold uppercase text-[11px]">
-                      <th className="py-3 px-4">Quản Trị Viên</th>
-                      <th className="py-3 px-3">Vai Trò Quản Trị</th>
-                      <th className="py-3 px-3">Quyền Hạn Chi Tiết</th>
-                      <th className="py-3 px-3">Đăng Nhập Gần Nhất</th>
-                      <th className="py-3 px-3 text-center">Trạng Thái</th>
-                      <th className="py-3 px-3 text-right">Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100">
-                    {DEMO_ADMINS.map((admin) => {
-                      const isCurrent = admin.id === currentAdmin.id;
-                      return (
-                        <tr
-                          key={admin.id}
-                          className={`transition-colors ${
-                            isCurrent ? 'bg-amber-50/70 font-semibold' : 'hover:bg-stone-50'
+                  {/* Filter Toolbar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-stone-200 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-stone-600">Khối lớp:</span>
+                      {(['all', 5, 8] as const).map((g) => (
+                        <button
+                          key={String(g)}
+                          onClick={() => setGradeFilter(g)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                            gradeFilter === g
+                              ? 'bg-amber-500 text-stone-950 font-black'
+                              : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
                           }`}
                         >
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-2xl shrink-0">{admin.avatar}</span>
+                          {g === 'all' ? 'Tất cả' : `Lớp ${g}`}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Tìm bài học..."
+                        className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-stone-50 border border-stone-200 outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Lessons Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {managedLessons
+                      .filter((l) => {
+                        const matchG = gradeFilter === 'all' || l.grade === gradeFilter;
+                        const matchQ =
+                          !searchQuery.trim() ||
+                          l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          l.unit.toLowerCase().includes(searchQuery.toLowerCase());
+                        return matchG && matchQ;
+                      })
+                      .map((lesson) => (
+                        <div
+                          key={lesson.id}
+                          className="bg-white border border-stone-200 rounded-3xl p-5 shadow-xs hover:border-amber-300 transition-all space-y-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="px-2 py-0.5 rounded-md bg-stone-100 font-bold text-[10px] text-stone-700">
+                                  Lớp {lesson.grade}
+                                </span>
+                                <span className="text-[11px] text-amber-700 font-semibold">{lesson.unit}</span>
+                              </div>
+                              <h3 className="font-black text-sm sm:text-base text-stone-950 leading-snug">
+                                {lesson.title}
+                              </h3>
+                              <p className="text-xs text-stone-500 line-clamp-1">{lesson.subtitle}</p>
+                            </div>
+
+                            <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 font-black text-xs shrink-0">
+                              +{lesson.xpReward} XP
+                            </span>
+                          </div>
+
+                          {/* 4-step indicator badges */}
+                          <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-stone-100 text-[10px] font-bold text-center">
+                            <span className="p-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200">
+                              1. Khám phá
+                            </span>
+                            <span className="p-1 rounded-lg bg-blue-50 text-blue-900 border border-blue-200">
+                              2. Luyện tập
+                            </span>
+                            <span className="p-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200">
+                              3. Vận dụng
+                            </span>
+                            <span className="p-1 rounded-lg bg-purple-50 text-purple-900 border border-purple-200">
+                              4. Giảng lại
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2">
+                            <span className="text-[11px] text-stone-400">⏱️ {lesson.estimatedMinutes} phút</span>
+                            <button
+                              onClick={() => setSelectedLessonForStepView(lesson)}
+                              className="px-3 py-1 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold transition-colors"
+                            >
+                              Xem Chi Tiết 4 Bước →
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* TAB 3: QUẢN LÝ MÔN HỌC (SUBJECTS)                         */}
+              {/* ========================================================= */}
+              {activeTab === 'subjects' && (
+                <div className="space-y-5">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                      Danh Mục Môn Học & Phân Nhánh KHTN
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                      Phân phối chương trình Lớp 5 & Tích hợp 3 phân môn KHTN Lớp 8
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {managedSubjects.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="bg-white border border-stone-200 rounded-3xl p-5 shadow-xs space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-2xl">
+                            {sub.icon}
+                          </div>
+                          <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-800 text-xs font-bold">
+                            Lớp {sub.grade}
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="font-black text-base text-stone-950">{sub.name}</h3>
+                          <p className="text-xs text-stone-500 line-clamp-2">{sub.description}</p>
+                        </div>
+                        <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-600">
+                          <span>Chủ đề: {sub.topics.length}</span>
+                          <span className="text-emerald-600 font-bold">✓ Đang hoạt động</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* TAB 4: QUẢN LÝ LỚP HỌC (CLASSES)                          */}
+              {/* ========================================================= */}
+              {activeTab === 'classes' && (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                        Danh Sách Lớp Học Vận Hành
+                      </h2>
+                      <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                        Quản lý các lớp Khối 5 & Khối 8, phân bổ giáo viên chủ nhiệm & phòng học
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        audioService.playClick();
+                        setNewClassModalOpen(true);
+                      }}
+                      className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-all shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Tạo Lớp Học Mới</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {classesList.map((cls) => (
+                      <div
+                        key={cls.id}
+                        className="bg-white border border-stone-200 rounded-3xl p-5 shadow-xs space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
+                            Lớp {cls.grade}
+                          </span>
+                          <span className="text-xs text-stone-400 font-mono">{cls.academicYear}</span>
+                        </div>
+                        <div>
+                          <h3 className="font-black text-base text-stone-950">{cls.name}</h3>
+                          <p className="text-xs text-stone-600 mt-1">GVCN: <strong>{cls.headTeacher}</strong></p>
+                          <p className="text-xs text-stone-500">{cls.room}</p>
+                        </div>
+                        <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs">
+                          <span className="font-bold text-stone-700">👥 {cls.studentCount} Học Sinh</span>
+                          <span className="text-emerald-600 font-bold">● Đang học</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* TAB 5: QUẢN LÝ NỘI DUNG (CONTENT & QUESTS)                 */}
+              {/* ========================================================= */}
+              {activeTab === 'content' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                      Quản Lý Nhiệm Vụ Hàng Ngày & Linh Vật Đồng Hành
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                      Cấu hình Daily Quests, câu chuyện linh vật Kiến Con và kho phần thưởng
+                    </p>
+                  </div>
+
+                  {/* Quests list */}
+                  <div className="bg-white border border-stone-200 rounded-3xl p-5 shadow-xs space-y-4">
+                    <h3 className="font-black text-sm text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-amber-500" />
+                      <span>Danh Sách Nhiệm Vụ Hàng Ngày (Quests)</span>
+                    </h3>
+                    <div className="space-y-2">
+                      {managedQuests.map((quest) => (
+                        <div
+                          key={quest.id}
+                          className="p-3 rounded-2xl bg-stone-50 border border-stone-200 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{quest.icon}</span>
+                            <div>
+                              <div className="font-black text-stone-900">{quest.title}</div>
+                              <div className="text-[11px] text-stone-500">{quest.description}</div>
+                            </div>
+                          </div>
+                          <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 font-black shrink-0">
+                            +{quest.xpReward} XP
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Ant Allies preview */}
+                  <div className="bg-white border border-stone-200 rounded-3xl p-5 shadow-xs space-y-4">
+                    <h3 className="font-black text-sm text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span>Linh Vật Đồng Hành (Ant Allies)</span>
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {ALLIES.slice(0, 4).map((ally) => (
+                        <div key={ally.id} className="p-3 rounded-2xl bg-stone-50 border border-stone-200 text-center">
+                          <span className="text-3xl block mb-1">{ally.icon}</span>
+                          <div className="font-black text-xs text-stone-900">{ally.name}</div>
+                          <div className="text-[10px] text-stone-500">{ally.role}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* TAB 6: QUẢN LÝ HỌC VIÊN (STUDENTS)                         */}
+              {/* ========================================================= */}
+              {activeTab === 'students' && (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                        Danh Sách & Hồ Sơ Học Viên
+                      </h2>
+                      <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                        Theo dõi điểm kinh nghiệm XP, chuỗi học và thưởng khích lệ học tập
+                      </p>
+                    </div>
+
+                    <div className="relative min-w-[220px]">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Tìm theo tên học sinh..."
+                        className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white border border-stone-200 outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Student Table */}
+                  <div className="bg-white border border-stone-200 rounded-3xl shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-stone-50 text-stone-600 font-black uppercase text-[10px] border-b border-stone-200">
+                          <tr>
+                            <th className="p-3.5">Học Viên</th>
+                            <th className="p-3.5">Lớp & Trường</th>
+                            <th className="p-3.5">Cấp Độ</th>
+                            <th className="p-3.5">Kinh Nghiệm (XP)</th>
+                            <th className="p-3.5">Chuỗi Học</th>
+                            <th className="p-3.5 text-right">Hành Động</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-100">
+                          {studentsList
+                            .filter(
+                              (s) =>
+                                !searchQuery.trim() ||
+                                s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                s.nickname.toLowerCase().includes(searchQuery.toLowerCase())
+                            )
+                            .map((stu) => (
+                              <tr key={stu.id} className="hover:bg-stone-50/80 transition-colors">
+                                <td className="p-3.5">
+                                  <div className="font-black text-stone-900">{stu.name}</div>
+                                  <div className="text-[11px] text-amber-700">{stu.nickname}</div>
+                                </td>
+                                <td className="p-3.5">
+                                  <div className="font-bold text-stone-800">
+                                    Lớp {stu.grade} ({stu.className})
+                                  </div>
+                                  <div className="text-[11px] text-stone-500">{stu.school}</div>
+                                </td>
+                                <td className="p-3.5 font-bold text-purple-700">Cấp {stu.level}</td>
+                                <td className="p-3.5 font-black text-amber-600">{stu.xp} XP</td>
+                                <td className="p-3.5 font-bold text-orange-600">🔥 {stu.streak} ngày</td>
+                                <td className="p-3.5 text-right">
+                                  <button
+                                    onClick={() => handleAwardXP(stu.id, 50)}
+                                    className="px-2.5 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[11px] transition-colors"
+                                  >
+                                    +50 XP 🎁
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* TAB 7: NHÂN SỰ & QUYỀN (STAFF - admin_users)              */}
+              {/* ========================================================= */}
+              {activeTab === 'staff' && (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                        Đội Ngũ Quản Trị & Phân Quyền (Bảng Riêng admin_users)
+                      </h2>
+                      <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                        Cơ chế cách ly an toàn tài khoản quản trị khỏi học sinh, bảo mật theo RBAC
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        audioService.playClick();
+                        setNewAdminModalOpen(true);
+                      }}
+                      className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-all shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Thêm Tài Khoản Quản Trị</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {staffList.map((admin) => {
+                      const isCurrent = currentAdmin.id === admin.id;
+                      const roleConfig = ADMIN_ROLES_CONFIG[admin.role];
+                      return (
+                        <div
+                          key={admin.id}
+                          className={`bg-white border rounded-3xl p-5 shadow-xs space-y-3 transition-all ${
+                            isCurrent ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-stone-200'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-2xl bg-stone-100 flex items-center justify-center text-2xl shrink-0">
+                                {admin.avatar}
+                              </div>
                               <div>
-                                <div className="font-black text-stone-900 flex items-center gap-1.5">
-                                  <span>{admin.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-black text-sm sm:text-base text-stone-900">{admin.name}</h3>
                                   {isCurrent && (
-                                    <span className="px-1.5 py-0.2 rounded bg-amber-500 text-stone-950 text-[10px] font-black">
-                                      Hiện tại
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-500 text-stone-950 font-black text-[10px]">
+                                      Đang chọn
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[11px] text-stone-500 font-mono">{admin.email}</div>
+                                <div className="text-xs text-amber-700 font-bold">{admin.roleTitle}</div>
+                                <div className="text-[11px] text-stone-400 font-mono">{admin.email}</div>
                               </div>
                             </div>
-                          </td>
-                          <td className="py-3 px-3">
-                            <span
-                              className={`inline-block px-2.5 py-0.5 rounded-full font-bold text-[11px] border ${
-                                admin.role === 'super_admin'
-                                  ? 'bg-red-100 text-red-800 border-red-300'
-                                  : admin.role === 'lesson_manager'
-                                  ? 'bg-blue-100 text-blue-800 border-blue-300'
-                                  : admin.role === 'subject_manager'
-                                  ? 'bg-purple-100 text-purple-800 border-purple-300'
-                                  : admin.role === 'grade_manager'
-                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                  : admin.role === 'content_manager'
-                                  ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                  : 'bg-rose-100 text-rose-800 border-rose-300'
-                              }`}
-                            >
-                              {admin.roleTitle}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 font-mono text-[11px] text-stone-700">
-                            {admin.permissions.join(', ')}
-                          </td>
-                          <td className="py-3 px-3 text-stone-500 text-[11px]">{admin.lastLogin}</td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold">
-                              Hoạt động
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-right">
+
                             <button
-                              type="button"
                               onClick={() => handleImpersonate(admin.id)}
-                              className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${
-                                isCurrent
-                                  ? 'bg-amber-500 text-stone-950 shadow-xs'
-                                  : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
-                              }`}
+                              className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-amber-100 text-stone-800 hover:text-amber-950 text-xs font-bold transition-colors"
                             >
-                              {isCurrent ? 'Đang Đóng Vai' : 'Đóng Vai'}
+                              Đóng vai
                             </button>
-                          </td>
-                        </tr>
+                          </div>
+
+                          <div className="pt-2 border-t border-stone-100 text-[11px] text-stone-600 line-clamp-2">
+                            {roleConfig.description}
+                          </div>
+
+                          <div className="pt-2 flex items-center justify-between text-[10px] text-stone-400">
+                            <span>Trạng thái: <strong className="text-emerald-600">Hoạt động</strong></span>
+                            <span>Đăng nhập: {admin.lastLogin}</span>
+                          </div>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* TAB 8: QUẢN LÝ CSDL SUPABASE                              */}
+              {/* ========================================================= */}
+              {activeTab === 'database' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                      Quản Lý & Kiểm Tra CSDL Supabase Live
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                      Kiểm tra độ trễ (latency), đồng bộ dữ liệu người dùng & cấu trúc bảng riêng admin_users
+                    </p>
+                  </div>
+
+                  {/* Status Card */}
+                  <div className="bg-white border border-stone-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl ${
+                          dbStatus.connected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          <Database className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-black text-base text-stone-900">Trạng Thái Kết Nối Supabase</h3>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                              dbStatus.connected ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {dbStatus.connected ? 'Online (Đã Kết Nối)' : 'Local Storage Fallback'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-stone-500 mt-0.5">{dbStatus.message}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={dbTesting}
+                          onClick={handleTestDatabase}
+                          className="px-4 py-2 rounded-xl bg-stone-900 text-white font-bold text-xs hover:bg-stone-800 transition-all flex items-center gap-1.5"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${dbTesting ? 'animate-spin' : ''}`} />
+                          <span>Kiểm Tra Ping Latency</span>
+                        </button>
+
+                        <button
+                          disabled={dbSyncing}
+                          onClick={handleSyncDatabase}
+                          className="px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-black text-xs hover:bg-amber-400 transition-all flex items-center gap-1.5"
+                        >
+                          <Database className="w-3.5 h-3.5" />
+                          <span>Đồng Bộ Ngay</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {dbStatus.latencyMs !== undefined && (
+                      <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200 text-xs flex items-center justify-between">
+                        <span className="font-bold text-stone-700">Độ trễ phản hồi máy chủ:</span>
+                        <span className="font-mono font-black text-emerald-600">{dbStatus.latencyMs} ms</span>
+                      </div>
+                    )}
+
+                    {syncMessage && (
+                      <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                        {syncMessage}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Schema Architecture Cards */}
+                  <div className="bg-white border border-stone-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-3">
+                    <h3 className="font-black text-sm text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                      <FileCode className="w-4 h-4 text-amber-500" />
+                      <span>Cấu Trúc Các Bảng Trong Cơ Sở Dữ Liệu (Schema Overview)</span>
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {[
+                        { table: 'public.admin_users', desc: 'Bảng riêng quản trị viên, chứa permissions RBAC & audit.' },
+                        { table: 'public.users', desc: 'Hồ sơ học sinh (họ tên, username, khối lớp, XP, streak).' },
+                        { table: 'public.courses & lessons', desc: 'Kho học liệu, 4 giai đoạn học tập, điểm thưởng XP.' },
+                        { table: 'public.daily_quests', desc: 'Ngân hàng nhiệm vụ tự động làm mới hàng ngày.' },
+                        { table: 'public.staff_accounts', desc: 'View bảo mật đồng bộ cho AdminCP portal.' },
+                        { table: 'public.leaderboards', desc: 'Bảng xếp hạng tổng hợp theo khối Lớp 5 & Lớp 8.' },
+                      ].map((s) => (
+                        <div key={s.table} className="p-3 rounded-2xl bg-stone-50 border border-stone-200 text-xs">
+                          <div className="font-mono font-black text-stone-900 mb-1">{s.table}</div>
+                          <div className="text-[11px] text-stone-600">{s.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* TAB 9: CHẨN ĐOÁN PRODUCTION & NHẬT KÝ (AUDIT)             */}
+              {/* ========================================================= */}
+              {activeTab === 'production' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
+                      Chẩn Đoán Production & Nhật Ký Kiểm Toán (Audit)
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                      Giám sát hệ thống thời gian thực và lịch sử thay đổi của các quản trị viên
+                    </p>
+                  </div>
+
+                  {/* System Health Indicators */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-white border border-stone-200 rounded-2xl p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-stone-500">Trạng Thái Applet</div>
+                        <div className="font-black text-stone-900">Hoạt Động 100%</div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-stone-200 rounded-2xl p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-stone-500">Đồng Bộ Cross-Tab</div>
+                        <div className="font-black text-stone-900">BroadcastChannel Sẵn Sàng</div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-stone-200 rounded-2xl p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-stone-500">Chính Sách Bảo Mật</div>
+                        <div className="font-black text-stone-900">RBAC admin_users Bật</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Full Audit Log Table */}
+                  <div className="bg-white border border-stone-200 rounded-3xl shadow-xs overflow-hidden">
+                    <div className="p-4 sm:p-5 border-b border-stone-200 flex items-center justify-between">
+                      <h3 className="font-black text-sm text-stone-900 uppercase tracking-wider flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-stone-600" />
+                        <span>Lịch Sử Hoạt Động (Audit Trail)</span>
+                      </h3>
+                      <span className="text-xs text-stone-400 font-mono">{auditLogs.length} bản ghi</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-stone-50 text-stone-600 font-black uppercase text-[10px] border-b border-stone-200">
+                          <tr>
+                            <th className="p-3.5">Thời Gian</th>
+                            <th className="p-3.5">Quản Trị Viên</th>
+                            <th className="p-3.5">Thao Tác</th>
+                            <th className="p-3.5">Mục Tiêu & Chi Tiết</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-100">
+                          {auditLogs.map((log) => (
+                            <tr key={log.id} className="hover:bg-stone-50/80 transition-colors">
+                              <td className="p-3.5 font-mono text-[11px] text-stone-500 whitespace-nowrap">
+                                {log.timestamp}
+                              </td>
+                              <td className="p-3.5 whitespace-nowrap">
+                                <span className="font-black text-stone-900">{log.adminName}</span>
+                                <span className="block text-[10px] text-amber-700 font-semibold">{log.role}</span>
+                              </td>
+                              <td className="p-3.5 font-bold text-stone-800 whitespace-nowrap">{log.action}</td>
+                              <td className="p-3.5">
+                                <div className="font-bold text-stone-900">{log.target}</div>
+                                <div className="text-[11px] text-stone-500">{log.details}</div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+
+      {/* =================================================================== */}
+      {/* MODAL 1: THÊM BÀI HỌC MỚI                                           */}
+      {/* =================================================================== */}
+      {newLessonModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <h3 className="font-black text-base text-stone-900 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-amber-500" />
+                <span>Biên Soạn Bài Học Mới</span>
+              </h3>
+              <button
+                onClick={() => setNewLessonModalOpen(false)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">Tiêu Đề Bài Học</label>
+                <input
+                  type="text"
+                  value={newLessonTitle}
+                  onChange={(e) => setNewLessonTitle(e.target.value)}
+                  placeholder="Ví dụ: Phép Nhân Phân Số"
+                  className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">Khối Lớp</label>
+                  <select
+                    value={newLessonGrade}
+                    onChange={(e) => setNewLessonGrade(Number(e.target.value) as GradeLevel)}
+                    className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none cursor-pointer"
+                  >
+                    <option value={5}>Lớp 5</option>
+                    <option value={8}>Lớp 8</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">Điểm Thưởng (XP)</label>
+                  <input
+                    type="number"
+                    value={newLessonXP}
+                    onChange={(e) => setNewLessonXP(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">Chương / Unit</label>
+                <input
+                  type="text"
+                  value={newLessonUnit}
+                  onChange={(e) => setNewLessonUnit(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none"
+                />
               </div>
             </div>
-          </div>
-        )}
-      </main>
 
-      {/* Embedded Full Admin Portal Modal if triggered */}
-      {showSubPortal && (
-        <AdminPortalModal
-          isOpen={showSubPortal}
-          onClose={() => setShowSubPortal(false)}
-          currentUser={currentUser}
-          lessons={lessons}
-          subjects={subjects}
-          quests={quests}
-          onUpdateLessons={onUpdateLessons}
-          onUpdateSubjects={onUpdateSubjects}
-          onUpdateQuests={onUpdateQuests}
-        />
+            <div className="pt-3 border-t border-stone-200 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setNewLessonModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-bold text-xs"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleCreateLesson}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs shadow-sm"
+              >
+                Xuất Bản Bài Học
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Embedded Production Debug Modal if triggered */}
-      {showSubDebug && (
-        <ProductionDebugModal
-          isOpen={showSubDebug}
-          onClose={() => setShowSubDebug(false)}
-        />
+      {/* =================================================================== */}
+      {/* MODAL 2: TẠO LỚP HỌC MỚI                                            */}
+      {/* =================================================================== */}
+      {newClassModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <h3 className="font-black text-base text-stone-900 flex items-center gap-2">
+                <School className="w-5 h-5 text-emerald-500" />
+                <span>Tạo Mới Lớp Học</span>
+              </h3>
+              <button
+                onClick={() => setNewClassModalOpen(false)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">Tên Lớp Học</label>
+                <input
+                  type="text"
+                  value={newClassName}
+                  onChange={(e) => setNewClassName(e.target.value)}
+                  placeholder="Ví dụ: Lớp 5A4 - Kiến Chăm Ngoan"
+                  className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">Khối Lớp</label>
+                  <select
+                    value={newClassGrade}
+                    onChange={(e) => setNewClassGrade(Number(e.target.value) as GradeLevel)}
+                    className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none cursor-pointer"
+                  >
+                    <option value={5}>Lớp 5</option>
+                    <option value={8}>Lớp 8</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">Giáo Viên Chủ Nhiệm</label>
+                  <input
+                    type="text"
+                    value={newClassTeacher}
+                    onChange={(e) => setNewClassTeacher(e.target.value)}
+                    placeholder="Thầy / Cô..."
+                    className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">Phòng Học</label>
+                <input
+                  type="text"
+                  value={newClassRoom}
+                  onChange={(e) => setNewClassRoom(e.target.value)}
+                  placeholder="Ví dụ: Phòng 204 - Nhà A"
+                  className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-stone-200 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setNewClassModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-bold text-xs"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleCreateClass}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm"
+              >
+                Lưu Lớp Học
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODAL 3: THÊM TÀI KHOẢN QUẢN TRỊ                                    */}
+      {/* =================================================================== */}
+      {newAdminModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <h3 className="font-black text-base text-stone-900 flex items-center gap-2">
+                <Users className="w-5 h-5 text-amber-500" />
+                <span>Thêm Tài Khoản Quản Trị</span>
+              </h3>
+              <button
+                onClick={() => setNewAdminModalOpen(false)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">Họ Và Tên</label>
+                <input
+                  type="text"
+                  value={newAdminName}
+                  onChange={(e) => setNewAdminName(e.target.value)}
+                  placeholder="Ví dụ: ThS. Lê Văn An"
+                  className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">Email Cơ Quan</label>
+                <input
+                  type="email"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  placeholder="an.le@kienhoc.vn"
+                  className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">Vai Trò Quản Trị (RBAC)</label>
+                <select
+                  value={newAdminRole}
+                  onChange={(e) => setNewAdminRole(e.target.value as AdminRole)}
+                  className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-300 font-bold outline-none cursor-pointer"
+                >
+                  {Object.values(ADMIN_ROLES_CONFIG).map((r) => (
+                    <option key={r.role} value={r.role}>
+                      {r.icon} {r.name} ({r.shortTitle})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-stone-200 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setNewAdminModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-bold text-xs"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleCreateAdmin}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs shadow-sm"
+              >
+                Cấp Quyền Quản Trị
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODAL 4: XEM CHI TIẾT 4 BƯỚC BÀI HỌC                                 */}
+      {/* =================================================================== */}
+      {selectedLessonForStepView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-stone-200 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <div>
+                <span className="text-[10px] font-black uppercase text-amber-700">Lớp {selectedLessonForStepView.grade}</span>
+                <h3 className="font-black text-lg text-stone-900 leading-snug">
+                  {selectedLessonForStepView.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedLessonForStepView(null)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200">
+                <div className="font-black text-amber-900 mb-1">Giai Đoạn 1: Khám Phá (Discover)</div>
+                <p className="text-amber-800">{selectedLessonForStepView.discover.conceptHeadline}</p>
+                <p className="text-stone-600 mt-1">{selectedLessonForStepView.discover.scenarioStory}</p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200">
+                <div className="font-black text-blue-900 mb-1">Giai Đoạn 2: Luyện Tập (Practice)</div>
+                <p className="text-blue-800">Gồm {selectedLessonForStepView.practice.totalSteps} bước rèn luyện câu hỏi trắc nghiệm tương tác.</p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200">
+                <div className="font-black text-emerald-900 mb-1">Giai Đoạn 3: Vận Dụng Thực Tế (Apply)</div>
+                <p className="text-emerald-800">{selectedLessonForStepView.apply.challengeTitle}</p>
+                <p className="text-stone-600 mt-1">{selectedLessonForStepView.apply.realWorldScenario}</p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200">
+                <div className="font-black text-purple-900 mb-1">Giai Đoạn 4: Giảng Lại (Teach-Back Feynman)</div>
+                <p className="text-purple-800">{selectedLessonForStepView.teachBack.promptTitle}</p>
+                <p className="text-stone-600 mt-1">{selectedLessonForStepView.teachBack.guidingQuestion}</p>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-stone-200 flex justify-end">
+              <button
+                onClick={() => setSelectedLessonForStepView(null)}
+                className="px-4 py-2 rounded-xl bg-stone-900 text-white font-bold text-xs"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

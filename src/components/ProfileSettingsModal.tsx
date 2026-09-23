@@ -308,9 +308,6 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 <h3 className="font-black text-xl sm:text-2xl tracking-tight text-white">
                   Quản Lý Hồ Sơ & Cài Đặt
                 </h3>
-                <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-white/30 text-white">
-                  Lớp {user.grade}
-                </span>
               </div>
               <p className="text-xs sm:text-sm text-amber-100 font-medium">
                 Tùy chỉnh thông tin học tập, giao diện và hiệu ứng âm thanh
@@ -450,15 +447,6 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     <label className="block text-xs font-black text-stone-700">
                       Tên Đăng Nhập (Username)
                     </label>
-                    {isUsernameFixed ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-black">
-                        <Lock className="w-3 h-3 text-amber-600" /> Cố định
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-stone-400">
-                        (Cố định sau khi tạo)
-                      </span>
-                    )}
                   </div>
                   <div className="relative">
                     <input
@@ -588,85 +576,65 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Account Authentication & Logout Block */}
-              <div className="p-4 rounded-2xl border-2 border-amber-200 bg-amber-50/50 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-amber-200 text-amber-900 flex items-center justify-center text-sm font-black shadow-xs">
-                      {isAuthenticated ? '🛡️' : '👤'}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black text-stone-900">
-                        {isAuthenticated ? 'Tài Khoản Đã Kết Nối CSDL' : 'Tài Khoản Khách (Chưa Liên Kết)'}
-                      </h4>
-                      <p className="text-[11px] text-stone-600">
-                        {isAuthenticated
-                          ? user.email || 'Đã đồng bộ bảo mật với Supabase'
-                          : 'Đăng ký tài khoản để bảo toàn tiến độ & nhận ngay +250 XP ban đầu!'}
-                      </p>
-                    </div>
+              {/* Account Authentication & Logout Actions */}
+              <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-stone-200">
+                {isAuthenticated ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audioService.playClick();
+                        onClose();
+                        if (onOpenAuth) onOpenAuth('signout_confirm');
+                      }}
+                      className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Thoát tài khoản</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audioService.playClick();
+                        onClose();
+                        if (onOpenAuth) onOpenAuth('signin');
+                      }}
+                      className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>Chuyển tài khoản</span>
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audioService.playClick();
+                        onClose();
+                        if (onOpenAuth) onOpenAuth('signup');
+                      }}
+                      className="px-4 py-2 rounded-xl btn-ant-3d-amber text-amber-950 text-xs font-black flex items-center gap-1.5 shadow-sm"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Đăng ký</span>
+                    </button>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {isAuthenticated ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          audioService.playClick();
-                          onClose();
-                          if (onOpenAuth) onOpenAuth('signout_confirm');
-                        }}
-                        className="px-3 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 border border-rose-300 text-rose-800 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                      >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span>Thoát tài khoản</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          audioService.playClick();
-                          onClose();
-                          if (onOpenAuth) onOpenAuth('signin');
-                        }}
-                        className="px-3 py-2 rounded-xl bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                      >
-                        <LogIn className="w-3.5 h-3.5" />
-                        <span>Chuyển tài khoản</span>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          audioService.playClick();
-                          onClose();
-                          if (onOpenAuth) onOpenAuth('signup');
-                        }}
-                        className="px-3.5 py-2 rounded-xl btn-ant-3d-amber text-amber-950 text-xs font-black flex items-center gap-1.5 shadow-sm"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>Đăng ký</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          audioService.playClick();
-                          onClose();
-                          if (onOpenAuth) onOpenAuth('signin');
-                        }}
-                        className="px-3 py-2 rounded-xl bg-white hover:bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                      >
-                        <LogIn className="w-3.5 h-3.5" />
-                        <span>Đăng nhập</span>
-                      </button>
-                    </>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audioService.playClick();
+                        onClose();
+                        if (onOpenAuth) onOpenAuth('signin');
+                      }}
+                      className="px-4 py-2 rounded-xl bg-white hover:bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>Đăng nhập</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
