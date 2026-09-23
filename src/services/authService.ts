@@ -294,7 +294,7 @@ class AuthService {
           try {
             const upsertPayload: Record<string, unknown> = {
               id: authData.user.id,
-              auth_id: authData.user.id,
+              auth_id: null,
               email: trimmedEmail,
               full_name: fullName.trim(),
               nickname: nickname?.trim() || fullName.trim(),
@@ -305,7 +305,7 @@ class AuthService {
               level: 1,
               role: 'student',
               is_verified: false,
-              last_login_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
               settings: {
                 birthDate,
                 username: username?.trim() || undefined,
@@ -329,9 +329,10 @@ class AuthService {
             const { error: upsertErr } = await client.from('users').upsert(upsertPayload as any);
             if (upsertErr) {
               debugLogger.warn('SUPABASE', `Lỗi upsert vào bảng public.users (${upsertErr.message}), đang kích hoạt fallback linh hoạt...`);
-              // Thử lại không kèm các trường mở rộng nếu schema chưa chạy migration
               const compactPayload: Record<string, unknown> = {
                 id: authData.user.id,
+                auth_id: null,
+                email: trimmedEmail,
                 full_name: fullName.trim(),
                 nickname: nickname?.trim() || fullName.trim(),
                 current_grade: grade,
@@ -341,7 +342,7 @@ class AuthService {
                 level: 1,
                 role: 'student',
                 is_verified: false,
-                last_login_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
                 settings: upsertPayload.settings,
               };
               const { error: compactErr } = await client.from('users').upsert(compactPayload as any);
@@ -552,7 +553,7 @@ class AuthService {
       try {
         const upsertPayload: Record<string, unknown> = {
           id: userId,
-          auth_id: authUserId,
+          auth_id: null,
           email: trimmedEmail,
           full_name: fullName,
           nickname,
@@ -563,7 +564,7 @@ class AuthService {
           level: 1,
           role: 'student',
           is_verified: true,
-          last_login_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
           settings: {
             birthDate,
             username,
@@ -576,7 +577,6 @@ class AuthService {
             soundVolume: newUserProfile.themeSettings?.soundVolume ?? 80,
             ambientChime: newUserProfile.themeSettings?.ambientChime ?? true,
           },
-          updated_at: new Date().toISOString(),
         };
 
         if (username) upsertPayload.username = username;

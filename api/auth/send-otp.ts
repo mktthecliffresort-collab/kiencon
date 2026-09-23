@@ -24,12 +24,14 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, message: 'Email là bắt buộc.' });
     }
 
-    const origin =
-      clientAppUrl ||
-      req.headers?.origin ||
-      (req.headers?.referer ? new URL(req.headers.referer).origin : '') ||
-      process.env.APP_URL ||
-      'https://kiencon.vercel.app';
+    let origin = clientAppUrl || req.headers?.origin || process.env.APP_URL || 'https://kiencon.vercel.app';
+    if (!origin && req.headers?.referer) {
+      try {
+        origin = new URL(req.headers.referer).origin;
+      } catch {
+        origin = 'https://kiencon.vercel.app';
+      }
+    }
 
     const otpCode = code || Math.floor(100000 + Math.random() * 900000).toString();
 
