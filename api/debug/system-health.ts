@@ -21,14 +21,20 @@ export default async function handler(req: any, res: any) {
   const rawSupabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const rawSupabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
-  // Clean URL: strip /rest/v1, /rest, trailing slashes, quotes
-  const supabaseUrl = rawSupabaseUrl
-    .trim()
-    .replace(/^["']|["']$/g, '')
-    .replace(/\/+$/, '')
-    .replace(/\/rest\/v1\/?$/i, '')
-    .replace(/\/rest\/?$/i, '')
-    .replace(/\/+$/, '');
+  // Clean URL: strip /rest/v1, /rest, trailing slashes, quotes using URL parser
+  let supabaseUrl = rawSupabaseUrl.trim().replace(/^["']|["']$/g, '');
+  if (supabaseUrl) {
+    try {
+      const parsed = new URL(supabaseUrl);
+      supabaseUrl = `${parsed.protocol}//${parsed.host}`;
+    } catch {
+      supabaseUrl = supabaseUrl
+        .replace(/\/+$/, '')
+        .replace(/\/rest\/v1\/?$/i, '')
+        .replace(/\/rest\/?$/i, '')
+        .replace(/\/+$/, '');
+    }
+  }
   const supabaseKey = rawSupabaseKey.trim().replace(/^["']|["']$/g, '');
   const hadDoubledRestPath = rawSupabaseUrl.includes('/rest/v1') || rawSupabaseUrl.includes('/rest');
 
