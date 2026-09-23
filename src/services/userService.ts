@@ -6,6 +6,8 @@ export const userService = {
     id?: string;
     name: string;
     nickname?: string;
+    username?: string;
+    phone?: string;
     birthDate?: string;
     email?: string;
     grade: GradeLevel;
@@ -14,6 +16,10 @@ export const userService = {
     level?: number;
     streakDays?: number;
     themeSettings?: UserProfile['themeSettings'];
+    enrolledCourses?: string[];
+    schoolName?: string;
+    role?: 'student' | 'parent' | 'teacher' | 'admin';
+    isVerified?: boolean;
   }): Promise<UserProfile> {
     const grade = profileData.grade;
     const baseProfile = await userRepository.getUserProfile(grade);
@@ -22,6 +28,8 @@ export const userService = {
       id: profileData.id || `user_${Date.now()}`,
       name: profileData.name,
       nickname: profileData.nickname || profileData.name,
+      username: profileData.username || baseProfile.username,
+      phone: profileData.phone || baseProfile.phone,
       birthDate: profileData.birthDate || baseProfile.birthDate || '2014-08-15',
       email: profileData.email || baseProfile.email,
       grade: profileData.grade,
@@ -31,6 +39,10 @@ export const userService = {
       streakDays: profileData.streakDays || baseProfile.streakDays || 1,
       lastActiveDate: new Date().toISOString().split('T')[0],
       themeSettings: profileData.themeSettings || baseProfile.themeSettings,
+      enrolledCourses: profileData.enrolledCourses || baseProfile.enrolledCourses || (grade === 5 ? ['toan_5'] : ['khtn_8']),
+      schoolName: profileData.schoolName || baseProfile.schoolName,
+      role: profileData.role || baseProfile.role || 'student',
+      isVerified: profileData.isVerified !== undefined ? profileData.isVerified : (baseProfile.isVerified ?? false),
     };
 
     return userRepository.updateUserProfile(newProfile);

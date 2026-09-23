@@ -26,6 +26,7 @@ import {
   Gift,
   Star,
   Calendar,
+  Phone,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -65,6 +66,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Sign In / Sign Up Form States
   const [fullName, setFullName] = useState<string>('');
   const [nickname, setNickname] = useState<string>('');
+  const [username, setUsername] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [schoolName, setSchoolName] = useState<string>('');
   const [birthDate, setBirthDate] = useState<string>(currentGrade === 8 ? '2011-05-20' : '2014-08-15');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -167,27 +171,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    if (!email.trim() || !email.includes('@')) {
+      setErrorMessage('Vui lòng nhập địa chỉ email hợp lệ.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Đảm bảo thông tin học sinh (Tên, Biệt danh, Ngày sinh, Email, Lớp, Avatar)
-      // được lưu trên toàn bộ database: cả Local lẫn Supabase (ưu tiên Supabase)
-      await userService.createProfile({
-        name: fullName.trim(),
-        nickname: nickname.trim() || fullName.trim(),
-        birthDate: birthDate || '2014-08-15',
-        email: email.trim().toLowerCase(),
-        grade: selectedGrade,
-        avatar: selectedAvatar,
-        xp: INITIAL_WELCOME_XP,
+      // 1. Kiểm tra xác thực xem người dùng đã tồn tại chưa (email, username, phone)
+      const existCheck = await authService.checkUserExists({
+        email: email.trim(),
+        username: username.trim() || undefined,
+        phone: phone.trim() || undefined,
       });
 
+      if (existCheck.exists) {
+        audioService.playClick();
+        setErrorMessage(existCheck.message || 'Tài khoản đã tồn tại trong hệ thống. Vui lòng kiểm tra lại!');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Tiến hành khởi tạo đăng ký & gửi OTP
       const result = await authService.signUp({
-        fullName,
+        fullName: fullName.trim(),
         nickname: nickname.trim() || fullName.trim(),
+        username: username.trim() || undefined,
+        phone: phone.trim() || undefined,
+        schoolName: schoolName.trim() || undefined,
         birthDate: birthDate || '2014-08-15',
-        email,
+        email: email.trim(),
         password,
         grade: selectedGrade,
         avatar: selectedAvatar,
+        enrolledCourses: selectedGrade === 8 ? ['khtn_8'] : ['toan_5'],
       });
 
       if (result.success) {
@@ -473,9 +490,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* ========================================================================= */}
           {mode === 'signup' && (
             <form onSubmit={handleSignUp} className="space-y-3.5">
-              {/* Họ tên & Biệt danh & Ngày tháng năm sinh */}
+              {/* Họ tên & Tên đăng nhập */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
                     Họ và tên học sinh <span className="text-rose-500">*</span>
                   </label>
@@ -490,6 +507,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       className="w-full pl-8 pr-3 py-2 rounded-xl border-2 border-stone-200 focus:border-amber-500 text-xs font-semibold text-stone-900 outline-none"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Tên đăng nhập (Username)
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                    placeholder="annguyen2026"
+                    className="w-full px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-amber-500 text-xs font-semibold text-stone-900 outline-none"
+                  />
                 </div>
 
                 <div>
@@ -518,6 +548,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       onChange={(e) => setBirthDate(e.target.value)}
                       max={new Date().toISOString().split('T')[0]}
                       className="w-full pl-8 pr-2.5 py-2 rounded-xl border-2 border-stone-200 focus:border-amber-500 text-xs font-semibold text-stone-900 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Số điện thoại liên hệ
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="0912 345 678"
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border-2 border-stone-200 focus:border-amber-500 text-xs font-semibold text-stone-900 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Trường học
+                  </label>
+                  <div className="relative">
+                    <GraduationCap className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input
+                      type="text"
+                      value={schoolName}
+                      onChange={(e) => setSchoolName(e.target.value)}
+                      placeholder="TH & THCS Kiến Học"
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border-2 border-stone-200 focus:border-amber-500 text-xs font-semibold text-stone-900 outline-none"
                     />
                   </div>
                 </div>

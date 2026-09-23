@@ -15,8 +15,20 @@ interface OtpRecord {
   expiresAt: number;
 }
 
-// In-memory OTP storage
+// In-memory OTP storage (fast local caching)
 const otpStore = new Map<string, OtpRecord>();
+
+function getSupabaseConfig() {
+  const url = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '')
+    .replace(/\/rest\/v1\/?$/, '')
+    .replace(/\/$/, '');
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    '';
+  return { url, key };
+}
 
 // Clean up expired OTPs every 5 minutes
 setInterval(() => {
@@ -96,6 +108,32 @@ export async function sendOtpEmail(params: {
     createdAt: now,
     expiresAt: now + 15 * 60 * 1000,
   });
+
+  // Persist to Supabase otp_codes table if credentials exist (vital for Vercel serverless)
+  const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
+  if (supabaseUrl && supabaseKey) {
+    try {
+      await fetch(`${supabaseUrl}/rest/v1/otp_codes`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          code,
+          codes: activeCodes,
+          expires_at: new Date(now + 15 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+        }),
+      });
+      console.log(`[Email OTP] Đã lưu mã OTP cho ${normalizedEmail} vào Supabase otp_codes.`);
+    } catch (dbErr: any) {
+      console.warn('[Email OTP] Không thể lưu OTP vào Supabase (chạy fallback in-memory):', dbErr?.message);
+    }
+  }
 
   const baseUrl = (appUrl || process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
   const verificationUrl = `${baseUrl}?verify_email=${encodeURIComponent(normalizedEmail)}&code=${encodeURIComponent(code)}`;
@@ -246,11 +284,11 @@ export async function sendOtpEmail(params: {
   };
 }
 
-export function verifyOtpCode(email: string, inputCode: string): {
+export async function verifyOtpCode(email: string, inputCode: string): Promise<{
   success: boolean;
   message: string;
-  record?: OtpRecord;
-} {
+  record?: any;
+}> {
   const normalizedEmail = email.trim().toLowerCase();
   const trimmedCode = inputCode.trim();
 
@@ -262,38 +300,101 @@ export function verifyOtpCode(email: string, inputCode: string): {
     };
   }
 
+  // 1. Check in-memory store
   const record = otpStore.get(normalizedEmail);
-  if (!record) {
-    return {
-      success: false,
-      message: 'Không tìm thấy yêu cầu OTP cho email này hoặc mã đã hết hạn.',
-    };
-  }
-
   const now = Date.now();
-  const isCodeMatch =
-    record.code === trimmedCode ||
-    record.codes.some((item) => item.code === trimmedCode && item.expiresAt > now);
 
-  if (!isCodeMatch) {
-    if (record.expiresAt < now && record.codes.every((item) => item.expiresAt < now)) {
+  if (record) {
+    const isCodeMatch =
+      record.code === trimmedCode ||
+      record.codes.some((item) => item.code === trimmedCode && item.expiresAt > now);
+
+    if (isCodeMatch) {
+      otpStore.delete(normalizedEmail);
+      return {
+        success: true,
+        message: 'Xác thực OTP thành công!',
+        record,
+      };
+    } else if (record.expiresAt < now && record.codes.every((item) => item.expiresAt < now)) {
       otpStore.delete(normalizedEmail);
       return {
         success: false,
         message: 'Mã OTP đã hết hạn. Vui lòng bấm gửi lại mã mới.',
       };
     }
+  }
+
+  // 2. In Vercel serverless functions, query Supabase otp_codes table
+  const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
+  if (supabaseUrl && supabaseKey) {
+    try {
+      const res = await fetch(
+        `${supabaseUrl}/rest/v1/otp_codes?email=eq.${encodeURIComponent(normalizedEmail)}&select=*`,
+        {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+        }
+      );
+
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const dbOtp = rows[0];
+          const expiresAt = new Date(dbOtp.expires_at).getTime();
+          const activeList = Array.isArray(dbOtp.codes) ? dbOtp.codes : [];
+
+          const isMatch =
+            dbOtp.code === trimmedCode ||
+            activeList.some((item: any) => item.code === trimmedCode && item.expiresAt > now);
+
+          if (isMatch) {
+            if (expiresAt < now && !activeList.some((item: any) => item.code === trimmedCode && item.expiresAt > now)) {
+              return {
+                success: false,
+                message: 'Mã OTP đã hết hạn. Vui lòng bấm gửi lại mã mới.',
+              };
+            }
+
+            // Consume the OTP from Supabase
+            try {
+              await fetch(`${supabaseUrl}/rest/v1/otp_codes?email=eq.${encodeURIComponent(normalizedEmail)}`, {
+                method: 'DELETE',
+                headers: {
+                  apikey: supabaseKey,
+                  Authorization: `Bearer ${supabaseKey}`,
+                },
+              });
+            } catch {}
+
+            return {
+              success: true,
+              message: 'Xác thực OTP thành công!',
+            };
+          } else {
+            return {
+              success: false,
+              message: 'Mã OTP không chính xác. Vui lòng kiểm tra lại!',
+            };
+          }
+        }
+      }
+    } catch (dbErr: any) {
+      console.warn('[Email OTP] Lỗi kiểm tra OTP trên Supabase:', dbErr?.message);
+    }
+  }
+
+  if (record) {
     return {
       success: false,
       message: 'Mã OTP không chính xác. Vui lòng kiểm tra lại!',
     };
   }
 
-  // Verify successful: consume the OTP
-  otpStore.delete(normalizedEmail);
   return {
-    success: true,
-    message: 'Xác thực OTP thành công!',
-    record,
+    success: false,
+    message: 'Không tìm thấy yêu cầu OTP cho email này hoặc mã đã hết hạn.',
   };
 }

@@ -335,29 +335,34 @@ export const supabaseService = {
     try {
       // Kiểm tra xem có phiên đăng nhập của người dùng không
       let authUserId: string | null = null;
+      let authEmail: string | null = null;
       try {
         const rawSession = localStorage.getItem('kienhoc_auth_session_v2');
         if (rawSession) {
           const sess = JSON.parse(rawSession);
           authUserId = sess.id;
+          authEmail = sess.email;
         }
       } catch {
         // ignore
       }
 
-      // Tìm người dùng: theo authUserId nếu đã đăng nhập, hoặc fallback theo current_grade
+      // Nếu người dùng CHƯA đăng nhập, sử dụng hồ sơ khách cục bộ (không lấy bừa tài khoản người khác từ DB)
+      if (!authUserId && !authEmail) {
+        return localProfile;
+      }
+
+      // Tìm đúng người dùng đã đăng nhập theo authUserId hoặc authEmail
       let query = client.from('users').select('*');
       if (authUserId) {
-        query = query.or(`id.eq.${authUserId},auth_id.eq.${authUserId}`).limit(1);
-      } else {
-        query = query.eq('current_grade', grade).order('updated_at', { ascending: false }).limit(1);
+        query = query.or(`id.eq.${authUserId},auth_id.eq.${authUserId}`);
+      } else if (authEmail) {
+        query = query.eq('email', authEmail.trim().toLowerCase());
       }
 
       const { data, error } = await query.maybeSingle();
 
       if (error || !data) {
-        // Chưa có -> đồng bộ từ local lên Supabase
-        await this.syncProfileToSupabase(localProfile);
         return localProfile;
       }
 
@@ -367,8 +372,11 @@ export const supabaseService = {
         id: data.id,
         name: data.full_name,
         nickname: data.nickname || data.full_name,
-        birthDate: (settings.birthDate as string) || localProfile.birthDate || '2014-08-15',
-        grade: data.current_grade as GradeLevel,
+        username: (data as any).username || (settings.username as string) || localProfile.username,
+        phone: (data as any).phone || (settings.phone as string) || localProfile.phone,
+        birthDate: (data as any).birth_date || (settings.birthDate as string) || localProfile.birthDate || '2014-08-15',
+        email: (data as any).email || (settings.email as string) || localProfile.email,
+        grade: (data.current_grade as GradeLevel) || grade,
         avatar: data.avatar || '🐜',
         xp: data.total_xp || 0,
         level: data.level || 1,
@@ -377,6 +385,10 @@ export const supabaseService = {
         completedLessons: localProfile.completedLessons,
         subjectMastery: localProfile.subjectMastery,
         inventory: localProfile.inventory,
+        enrolledCourses: (data as any).enrolled_courses || (settings.enrolledCourses as string[]) || localProfile.enrolledCourses || (grade === 5 ? ['toan_5'] : ['khtn_8']),
+        schoolName: (data as any).school_name || (settings.schoolName as string) || localProfile.schoolName,
+        role: ((data as any).role as any) || (settings.role as any) || 'student',
+        isVerified: (data as any).is_verified !== undefined ? (data as any).is_verified : (localProfile.isVerified ?? false),
         themeSettings: {
           mode: (settings.mode as 'light' | 'soft' | 'warm') || localProfile.themeSettings?.mode || 'light',
           accentColor: (settings.accentColor as 'amber' | 'sky' | 'emerald' | 'purple' | 'rose') || localProfile.themeSettings?.accentColor || 'amber',
@@ -423,43 +435,100 @@ export const supabaseService = {
     const client = getSupabaseClient();
     if (!client) return;
 
+    // Không đồng bộ hồ sơ khách vãng lai đè lên database
+    if (
+      !profile.id ||
+      profile.id.startsWith('user_guest') ||
+      profile.id.startsWith('guest_') ||
+      (!profile.email && profile.id.startsWith('user_'))
+    ) {
+      return;
+    }
+
     try {
-      // Tìm xem đã có bản ghi theo profile.id hoặc current_grade
+      // Tìm xem đã có bản ghi theo profile.id hoặc email
       let query = client.from('users').select('id');
       if (profile.id && !profile.id.startsWith('user_')) {
         query = query.or(`id.eq.${profile.id},auth_id.eq.${profile.id}`).limit(1);
+      } else if (profile.email) {
+        query = query.eq('email', profile.email.toLowerCase().trim()).limit(1);
       } else {
-        query = query.eq('current_grade', profile.grade).order('updated_at', { ascending: false }).limit(1);
+        return;
       }
       const { data: existingUser } = await query.maybeSingle();
 
-      const payload = {
+      const baseSettings = {
+        ...(profile.themeSettings
+          ? {
+              mode: profile.themeSettings.mode,
+              accentColor: profile.themeSettings.accentColor,
+              soundEnabled: profile.themeSettings.soundEnabled,
+              soundVolume: profile.themeSettings.soundVolume,
+              ambientChime: profile.themeSettings.ambientChime,
+            }
+          : {}),
+        ...(profile.birthDate ? { birthDate: profile.birthDate } : {}),
+        ...(profile.email ? { email: profile.email } : {}),
+        ...(profile.username ? { username: profile.username } : {}),
+        ...(profile.phone ? { phone: profile.phone } : {}),
+        ...(profile.enrolledCourses ? { enrolledCourses: profile.enrolledCourses } : {}),
+        ...(profile.schoolName ? { schoolName: profile.schoolName } : {}),
+      };
+
+      // Payload đầy đủ chứa các cột độc lập mới
+      const fullPayload: any = {
         full_name: profile.name,
         nickname: profile.nickname || profile.name,
+        email: profile.email ? profile.email.toLowerCase().trim() : null,
+        username: profile.username ? profile.username.toLowerCase().trim() : null,
+        phone: profile.phone ? profile.phone.trim() : null,
+        birth_date: profile.birthDate || null,
         current_grade: profile.grade,
+        enrolled_courses: profile.enrolledCourses || (profile.grade === 5 ? ['toan_5'] : ['khtn_8']),
+        school_name: profile.schoolName || null,
+        role: profile.role || 'student',
+        is_verified: profile.isVerified !== undefined ? profile.isVerified : false,
         avatar: profile.avatar || '🐜',
         total_xp: profile.xp || 0,
         streak_days: profile.streakDays || 1,
         level: profile.level || 1,
-        settings: {
-          ...(profile.themeSettings
-            ? {
-                mode: profile.themeSettings.mode,
-                accentColor: profile.themeSettings.accentColor,
-                soundEnabled: profile.themeSettings.soundEnabled,
-                soundVolume: profile.themeSettings.soundVolume,
-                ambientChime: profile.themeSettings.ambientChime,
-              }
-            : {}),
-          ...(profile.birthDate ? { birthDate: profile.birthDate } : {}),
-        },
+        settings: baseSettings,
         updated_at: new Date().toISOString(),
       };
 
       if (existingUser?.id) {
-        await client.from('users').update(payload).eq('id', existingUser.id);
+        const { error } = await client.from('users').update(fullPayload).eq('id', existingUser.id);
+        if (error) {
+          // Nếu bảng trên Supabase chưa chạy migration (thiếu cột), update các cột cơ bản
+          const basicPayload = {
+            full_name: profile.name,
+            nickname: profile.nickname || profile.name,
+            current_grade: profile.grade,
+            avatar: profile.avatar || '🐜',
+            total_xp: profile.xp || 0,
+            streak_days: profile.streakDays || 1,
+            level: profile.level || 1,
+            settings: baseSettings,
+            updated_at: new Date().toISOString(),
+          };
+          await client.from('users').update(basicPayload).eq('id', existingUser.id);
+        }
       } else {
-        await client.from('users').insert(payload);
+        const { error } = await client.from('users').insert(fullPayload);
+        if (error) {
+          const basicPayload = {
+            full_name: profile.name,
+            nickname: profile.nickname || profile.name,
+            current_grade: profile.grade,
+            avatar: profile.avatar || '🐜',
+            total_xp: profile.xp || 0,
+            streak_days: profile.streakDays || 1,
+            level: profile.level || 1,
+            settings: baseSettings,
+            updated_at: new Date().toISOString(),
+          };
+          await client.from('users').insert(basicPayload);
+        }
       }
     } catch (e) {
       console.warn('Không thể đồng bộ hồ sơ lên Supabase users:', e);

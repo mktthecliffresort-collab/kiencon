@@ -18,8 +18,19 @@ export default async function handler(req: any, res: any) {
   const rawPass = process.env.GMAIL_APP_PASSWORD || '';
   const sanitizedPass = rawPass.replace(/[\s"'-]/g, '').trim();
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const rawSupabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const rawSupabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+  // Clean URL: strip /rest/v1, /rest, trailing slashes, quotes
+  const supabaseUrl = rawSupabaseUrl
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/\/+$/, '')
+    .replace(/\/rest\/v1\/?$/i, '')
+    .replace(/\/rest\/?$/i, '')
+    .replace(/\/+$/, '');
+  const supabaseKey = rawSupabaseKey.trim().replace(/^["']|["']$/g, '');
+  const hadDoubledRestPath = rawSupabaseUrl.includes('/rest/v1') || rawSupabaseUrl.includes('/rest');
 
   const isVercel = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
   const now = new Date().toISOString();
@@ -150,6 +161,8 @@ export default async function handler(req: any, res: any) {
   if (!supabaseUrl || !supabaseKey) {
     issues.push('Thiếu biến môi trường VITE_SUPABASE_URL hoặc VITE_SUPABASE_ANON_KEY trên Vercel.');
     suggestions.push('Cần thêm VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY vào Vercel để ứng dụng có thể lưu tài khoản vào bảng public.users.');
+  } else if (hadDoubledRestPath) {
+    suggestions.push('Lưu ý: Biến VITE_SUPABASE_URL trên Vercel của bạn có chứa đuôi /rest/v1. Hệ thống đã tự động lọc sạch để tránh lỗi 404, bạn nên cập nhật lại trên Vercel chỉ lấy Project URL gốc (https://<project-ref>.supabase.co).');
   }
 
   return res.status(200).json({

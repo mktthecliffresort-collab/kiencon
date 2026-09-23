@@ -8,18 +8,27 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ==============================================================================
 -- 2. NGƯỜI DÙNG & GAMIFICATION (USERS & INVENTORY)
--- Gộp profiles và user_settings để tối ưu truy vấn, hỗ trợ Offline-first
+-- Gộp profiles và user_settings để tối ưu truy vấn, hỗ trợ Offline-first & Auth
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     auth_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    email TEXT UNIQUE,
+    username TEXT UNIQUE,
+    phone TEXT,
     full_name TEXT NOT NULL,
     nickname TEXT,
+    birth_date DATE,
     current_grade INTEGER NOT NULL DEFAULT 5,
+    enrolled_courses TEXT[] DEFAULT ARRAY['toan_5']::text[],
+    school_name TEXT,
+    role TEXT NOT NULL DEFAULT 'student',
+    is_verified BOOLEAN NOT NULL DEFAULT false,
     avatar TEXT NOT NULL DEFAULT '🐜',
-    total_xp INTEGER NOT NULL DEFAULT 0,
+    total_xp INTEGER NOT NULL DEFAULT 250,
     streak_days INTEGER NOT NULL DEFAULT 1,
     level INTEGER NOT NULL DEFAULT 1,
+    last_login_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
     settings JSONB NOT NULL DEFAULT '{
         "mode": "light",
         "accentColor": "amber",
@@ -30,6 +39,12 @@ CREATE TABLE IF NOT EXISTS public.users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+-- Thêm các chỉ mục nhanh cho bảng users
+CREATE INDEX IF NOT EXISTS idx_users_email ON public.users (email);
+CREATE INDEX IF NOT EXISTS idx_users_username ON public.users (username);
+CREATE INDEX IF NOT EXISTS idx_users_phone ON public.users (phone);
+CREATE INDEX IF NOT EXISTS idx_users_current_grade ON public.users (current_grade);
 
 CREATE TABLE IF NOT EXISTS public.user_inventory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -287,3 +302,21 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
     NULL;
 END $$;
+
+-- 11. BẢNG LƯU TRỮ MÃ OTP (HỖ TRỢ SERVERLESS VERCEL CROSS-INSTANCE)
+CREATE TABLE IF NOT EXISTS public.otp_codes (
+    email TEXT PRIMARY KEY,
+    code TEXT NOT NULL,
+    codes JSONB DEFAULT '[]'::jsonb,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
+);
+
+DO $$
+BEGIN
+    ALTER TABLE public.otp_codes ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "Public access to otp_codes" ON public.otp_codes FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+

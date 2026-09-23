@@ -90,8 +90,11 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   // Form State - Profile
   const [name, setName] = useState<string>(user.name || '');
   const [nickname, setNickname] = useState<string>(user.nickname || '');
+  const [username, setUsername] = useState<string>(user.username || '');
+  const [phone, setPhone] = useState<string>(user.phone || '');
+  const [schoolName, setSchoolName] = useState<string>(user.schoolName || '');
   const [birthDate, setBirthDate] = useState<string>(user.birthDate || '2014-08-15');
-  const [email, setEmail] = useState<string>(user.email || 'hocsinh@kienhoc.edu.vn');
+  const [email, setEmail] = useState<string>(user.email || '');
   const [password, setPassword] = useState<string>(user.password || '••••••••');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [avatar, setAvatar] = useState<string>(user.avatar || '🐜');
@@ -118,8 +121,11 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     if (isOpen && user) {
       setName(user.name || '');
       setNickname(user.nickname || '');
+      setUsername(user.username || '');
+      setPhone(user.phone || '');
+      setSchoolName(user.schoolName || '');
       setBirthDate(user.birthDate || '2014-08-15');
-      setEmail(user.email || 'hocsinh@kienhoc.edu.vn');
+      setEmail(user.email || '');
       setPassword(user.password || '••••••••');
       setAvatar(user.avatar || '🐜');
       if (user.themeSettings) {
@@ -206,6 +212,9 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
       ...user,
       name: finalName,
       nickname: finalNickname,
+      username: username.trim() || user.username,
+      phone: phone.trim() || user.phone,
+      schoolName: schoolName.trim() || user.schoolName,
       birthDate,
       email: email.trim(),
       password,
@@ -395,10 +404,53 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="hocsinh@kienhoc.edu.vn"
+                    placeholder="ví dụ: email@gmail.com"
                     className="w-full px-3.5 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-sm font-bold text-stone-800 bg-stone-50/50"
                   />
                 </div>
+              </div>
+
+              {/* Tên đăng nhập & Số điện thoại */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-black text-stone-700 mb-1.5">
+                    Tên Đăng Nhập (Username)
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="ví dụ: kien_con123"
+                    className="w-full px-3.5 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-sm font-bold text-stone-800 bg-stone-50/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-stone-700 mb-1.5">
+                    Số Điện Thoại Phụ Huynh / Học Sinh
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="ví dụ: 0912345678"
+                    className="w-full px-3.5 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-sm font-bold text-stone-800 bg-stone-50/50"
+                  />
+                </div>
+              </div>
+
+              {/* Trường học */}
+              <div>
+                <label className="block text-xs font-black text-stone-700 mb-1.5">
+                  Trường Học Hiện Tại
+                </label>
+                <input
+                  type="text"
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                  placeholder="ví dụ: Tiểu học Dịch Vọng A / THCS Cầu Giấy"
+                  className="w-full px-3.5 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-sm font-bold text-stone-800 bg-stone-50/50"
+                />
               </div>
 
               {/* Password */}

@@ -13,22 +13,31 @@ export interface AuthSessionData {
   email: string;
   fullName: string;
   nickname?: string;
+  username?: string;
+  phone?: string;
   birthDate?: string;
   grade: GradeLevel;
   avatar: string;
   xp: number;
   isVerified: boolean;
+  schoolName?: string;
+  enrolledCourses?: string[];
+  role?: 'student' | 'teacher' | 'parent';
   token?: string;
 }
 
 export interface SignUpParams {
   fullName: string;
   nickname?: string;
+  username?: string;
+  phone?: string;
   birthDate?: string;
   email: string;
   password?: string;
   grade: GradeLevel;
   avatar?: string;
+  schoolName?: string;
+  enrolledCourses?: string[];
 }
 
 export interface SignInParams {
@@ -40,11 +49,15 @@ export interface PendingVerification {
   email: string;
   fullName: string;
   nickname?: string;
+  username?: string;
+  phone?: string;
   birthDate?: string;
   password?: string;
   grade: GradeLevel;
   avatar: string;
   code: string;
+  schoolName?: string;
+  enrolledCourses?: string[];
   validCodes?: string[];
   createdAt: number;
 }
@@ -120,7 +133,19 @@ class AuthService {
     message: string;
     error?: string;
   }> {
-    const { fullName, nickname, birthDate = '2014-08-15', email, password, grade, avatar = '🐜' } = params;
+    const {
+      fullName,
+      nickname,
+      username,
+      phone,
+      birthDate = '2014-08-15',
+      email,
+      password,
+      grade,
+      avatar = '🐜',
+      schoolName,
+      enrolledCourses,
+    } = params;
 
     // Validate email
     const trimmedEmail = email.trim().toLowerCase();
@@ -165,6 +190,10 @@ class AuthService {
       email: trimmedEmail,
       fullName: fullName.trim(),
       nickname: nickname?.trim() || fullName.trim(),
+      username: username?.trim() || undefined,
+      phone: phone?.trim() || undefined,
+      schoolName: schoolName?.trim() || undefined,
+      enrolledCourses: enrolledCourses || (grade === 8 ? ['khtn_8'] : ['toan_5']),
       birthDate,
       password,
       grade,
@@ -238,6 +267,9 @@ class AuthService {
             data: {
               full_name: fullName.trim(),
               nickname: nickname?.trim() || fullName.trim(),
+              username: username?.trim() || undefined,
+              phone: phone?.trim() || undefined,
+              school_name: schoolName?.trim() || undefined,
               birth_date: birthDate,
               current_grade: grade,
               avatar,
@@ -260,25 +292,41 @@ class AuthService {
           debugLogger.success('SUPABASE', `Tạo tài khoản Auth Supabase thành công (UID: ${authData.user.id})`);
           // Lưu dữ liệu ưu tiên vào public.users
           try {
-            const { error: upsertErr } = await client.from('users').upsert({
+            const upsertPayload: Record<string, unknown> = {
               id: authData.user.id,
               auth_id: authData.user.id,
+              email: trimmedEmail,
               full_name: fullName.trim(),
               nickname: nickname?.trim() || fullName.trim(),
               current_grade: grade,
               avatar,
-              total_xp: INITIAL_WELCOME_XP, // Tặng điểm ban đầu
+              total_xp: INITIAL_WELCOME_XP,
               streak_days: 1,
               level: 1,
+              role: 'student',
+              is_verified: false,
+              last_login_at: new Date().toISOString(),
               settings: {
                 birthDate,
+                username: username?.trim() || undefined,
+                phone: phone?.trim() || undefined,
+                schoolName: schoolName?.trim() || undefined,
+                enrolledCourses: enrolledCourses || (grade === 8 ? ['khtn_8'] : ['toan_5']),
                 mode: 'light',
                 accentColor: 'amber',
                 soundEnabled: true,
                 soundVolume: 80,
                 ambientChime: true,
               },
-            });
+            };
+
+            if (username?.trim()) upsertPayload.username = username.trim();
+            if (phone?.trim()) upsertPayload.phone = phone.trim();
+            if (schoolName?.trim()) upsertPayload.school_name = schoolName.trim();
+            if (birthDate) upsertPayload.birth_date = birthDate;
+            upsertPayload.enrolled_courses = enrolledCourses || (grade === 8 ? ['khtn_8'] : ['toan_5']);
+
+            const { error: upsertErr } = await client.from('users').upsert(upsertPayload as any);
             if (upsertErr) {
               debugLogger.error('SUPABASE', `Lỗi upsert vào bảng public.users: ${upsertErr.message}`, upsertErr);
             } else {
@@ -439,15 +487,25 @@ class AuthService {
     const fullName = pending?.fullName || (dbUser?.full_name as string) || 'Học sinh Kiến';
     const nickname = pending?.nickname || (dbUser?.nickname as string) || fullName;
     const dbSettings = (dbUser?.settings as Record<string, unknown>) || {};
+    const username = pending?.username || (dbUser?.username as string) || (dbSettings.username as string) || undefined;
+    const phone = pending?.phone || (dbUser?.phone as string) || (dbSettings.phone as string) || undefined;
+    const schoolName = pending?.schoolName || (dbUser?.school_name as string) || (dbSettings.schoolName as string) || undefined;
     const birthDate = pending?.birthDate || (dbSettings.birthDate as string) || '2014-08-15';
     const grade = (pending?.grade || (dbUser?.current_grade as number) || 5) as GradeLevel;
     const avatar = pending?.avatar || (dbUser?.avatar as string) || '🐜';
+    const enrolledCourses = pending?.enrolledCourses || (dbUser?.enrolled_courses as string[]) || (grade === 8 ? ['khtn_8'] : ['toan_5']);
 
     // Tạo UserProfile hoàn chỉnh với phần thưởng +250 XP
     const newUserProfile: UserProfile = {
       id: userId,
       name: fullName,
       nickname,
+      username,
+      phone,
+      schoolName,
+      enrolledCourses,
+      role: 'student',
+      isVerified: true,
       birthDate,
       email: trimmedEmail,
       grade,
@@ -471,9 +529,10 @@ class AuthService {
     // ƯU TIÊN LƯU VÀO SUPABASE DATABASE TRƯỚC
     if (client && isSupabaseConfigured()) {
       try {
-        await client.from('users').upsert({
+        const upsertPayload: Record<string, unknown> = {
           id: userId,
           auth_id: authUserId,
+          email: trimmedEmail,
           full_name: fullName,
           nickname,
           current_grade: grade,
@@ -481,8 +540,15 @@ class AuthService {
           total_xp: INITIAL_WELCOME_XP,
           streak_days: 1,
           level: 1,
+          role: 'student',
+          is_verified: true,
+          last_login_at: new Date().toISOString(),
           settings: {
             birthDate,
+            username,
+            phone,
+            schoolName,
+            enrolledCourses,
             mode: newUserProfile.themeSettings?.mode || 'light',
             accentColor: newUserProfile.themeSettings?.accentColor || 'amber',
             soundEnabled: newUserProfile.themeSettings?.soundEnabled ?? true,
@@ -490,7 +556,15 @@ class AuthService {
             ambientChime: newUserProfile.themeSettings?.ambientChime ?? true,
           },
           updated_at: new Date().toISOString(),
-        });
+        };
+
+        if (username) upsertPayload.username = username;
+        if (phone) upsertPayload.phone = phone;
+        if (schoolName) upsertPayload.school_name = schoolName;
+        if (birthDate) upsertPayload.birth_date = birthDate;
+        upsertPayload.enrolled_courses = enrolledCourses;
+
+        await client.from('users').upsert(upsertPayload as any);
       } catch (err) {
         console.warn('Lỗi upsert user vào Supabase:', err);
       }
@@ -503,6 +577,12 @@ class AuthService {
         id: userId,
         name: fullName,
         nickname,
+        username,
+        phone,
+        schoolName,
+        enrolledCourses,
+        role: 'student',
+        isVerified: true,
         birthDate,
         email: trimmedEmail,
         grade,
@@ -520,6 +600,11 @@ class AuthService {
       email: trimmedEmail,
       fullName,
       nickname,
+      username,
+      phone,
+      schoolName,
+      enrolledCourses,
+      role: 'student',
       birthDate,
       grade,
       avatar,
@@ -874,7 +959,13 @@ class AuthService {
         const grade = (Number(dbUser.current_grade) === 8 ? 8 : 5) as GradeLevel;
         const fullName = dbUser.full_name || session?.fullName || 'Học sinh Kiến';
         const nickname = dbUser.nickname || session?.nickname || fullName;
-        const birthDate = (userSettings.birthDate as string) || session?.birthDate || '2014-08-15';
+        const username = (dbUser as any).username || (userSettings.username as string) || session?.username;
+        const phone = (dbUser as any).phone || (userSettings.phone as string) || session?.phone;
+        const schoolName = (dbUser as any).school_name || (userSettings.schoolName as string) || session?.schoolName;
+        const enrolledCourses = (dbUser as any).enrolled_courses || (userSettings.enrolledCourses as string[]) || session?.enrolledCourses || (grade === 8 ? ['khtn_8'] : ['toan_5']);
+        const role = ((dbUser as any).role as any) || (userSettings.role as any) || 'student';
+        const isVerified = (dbUser as any).is_verified !== undefined ? Boolean((dbUser as any).is_verified) : true;
+        const birthDate = (dbUser as any).birth_date || (userSettings.birthDate as string) || session?.birthDate || '2014-08-15';
         const avatar = dbUser.avatar || session?.avatar || '🐜';
         const totalXp = Number(dbUser.total_xp) || session?.xp || INITIAL_WELCOME_XP;
         const streakDays = Number(dbUser.streak_days) || 1;
@@ -884,8 +975,14 @@ class AuthService {
           id: dbUser.id || targetId || `user_${Date.now()}`,
           name: fullName,
           nickname,
+          username,
+          phone,
+          schoolName,
+          enrolledCourses,
+          role,
+          isVerified,
           birthDate,
-          email: targetEmail || undefined,
+          email: targetEmail || (dbUser as any).email || undefined,
           grade,
           avatar,
           xp: totalXp,
@@ -907,14 +1004,19 @@ class AuthService {
         // Cập nhật lại session
         this.saveSession({
           id: syncedProfile.id,
-          email: targetEmail || '',
+          email: targetEmail || (dbUser as any).email || '',
           fullName,
           nickname,
+          username,
+          phone,
+          schoolName,
+          enrolledCourses,
+          role,
           birthDate,
           grade,
           avatar,
           xp: totalXp,
-          isVerified: true,
+          isVerified,
         });
 
         // Đồng bộ đè vào LocalStorage cache
@@ -932,6 +1034,86 @@ class AuthService {
     }
 
     return null;
+  }
+
+  // ============================================================================
+  // 6. KIỂM TRA TRÙNG LẶP USER TRƯỚC KHI ĐĂNG KÝ (USERNAME, EMAIL, PHONE)
+  // ============================================================================
+  public async checkUserExists(params: {
+    email?: string;
+    username?: string;
+    phone?: string;
+  }): Promise<{
+    exists: boolean;
+    field?: 'email' | 'username' | 'phone';
+    message?: string;
+  }> {
+    const client = getSupabaseClient();
+    if (!client || !isSupabaseConfigured()) {
+      return { exists: false };
+    }
+
+    try {
+      const email = params.email?.trim().toLowerCase();
+      const username = params.username?.trim().toLowerCase();
+      const phone = params.phone?.trim();
+
+      // 1. Kiểm tra Email
+      if (email) {
+        const { data: emailUser } = await client
+          .from('users')
+          .select('id, email')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (emailUser) {
+          return {
+            exists: true,
+            field: 'email',
+            message: `Email "${email}" đã được đăng ký tài khoản. Vui lòng đăng nhập hoặc dùng email khác.`,
+          };
+        }
+      }
+
+      // 2. Kiểm tra Tên đăng nhập (Username)
+      if (username) {
+        const { data: userByUsername } = await client
+          .from('users')
+          .select('id, username')
+          .eq('username', username)
+          .maybeSingle();
+
+        if (userByUsername) {
+          return {
+            exists: true,
+            field: 'username',
+            message: `Tên đăng nhập "${username}" đã tồn tại. Vui lòng chọn tên đăng nhập khác!`,
+          };
+        }
+      }
+
+      // 3. Kiểm tra Số điện thoại
+      if (phone) {
+        const { data: userByPhone } = await client
+          .from('users')
+          .select('id, phone')
+          .eq('phone', phone)
+          .maybeSingle();
+
+        if (userByPhone) {
+          return {
+            exists: true,
+            field: 'phone',
+            message: `Số điện thoại "${phone}" đã được sử dụng. Vui lòng kiểm tra lại.`,
+          };
+        }
+      }
+
+      return { exists: false };
+    } catch (err: any) {
+      console.warn('Lỗi kiểm tra trùng lặp người dùng:', err?.message);
+      return { exists: false };
+    }
   }
 }
 

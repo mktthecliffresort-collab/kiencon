@@ -23,7 +23,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, message: 'Email và mã OTP là bắt buộc.' });
     }
 
-    const result = verifyOtpCode(email, code);
+    const result = await verifyOtpCode(email, code);
     return res.status(200).json(result);
   } catch (error: any) {
     console.error('Lỗi Vercel API /api/auth/verify-otp:', error);

@@ -1,19 +1,46 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
 
+/**
+ * Tự động làm sạch và chuẩn hóa Supabase Project URL.
+ * Rất nhiều người dùng copy nhầm "REST URL" (https://...supabase.co/rest/v1)
+ * thay vì "Project URL" (https://...supabase.co).
+ * Thư viện @supabase/supabase-js sẽ tự nối /rest/v1/..., nếu để nguyên sẽ bị lỗi lặp:
+ * /rest/v1/rest/v1/... gây ra mã lỗi 404 (Not Found) hoặc "Invalid path specified in request URL".
+ */
+export const sanitizeSupabaseUrl = (rawUrl?: string | null): string => {
+  if (!rawUrl) return '';
+  let url = String(rawUrl).trim();
+  // Loại bỏ dấu ngoặc kép thừa nếu copy từ file cấu hình
+  url = url.replace(/^["']|["']$/g, '');
+  // Cắt bỏ trailing slashes
+  url = url.replace(/\/+$/, '');
+  // Cắt bỏ /rest/v1 hoặc /rest hoặc /auth/v1 bị dán nhầm vào cuối
+  url = url.replace(/\/rest\/v1\/?$/i, '');
+  url = url.replace(/\/rest\/?$/i, '');
+  url = url.replace(/\/auth\/v1\/?$/i, '');
+  url = url.replace(/\/+$/, '');
+  return url;
+};
+
+export const sanitizeSupabaseKey = (rawKey?: string | null): string => {
+  if (!rawKey) return '';
+  return String(rawKey).trim().replace(/^["']|["']$/g, '');
+};
+
 // Đọc thông tin kết nối Supabase từ biến môi trường (hỗ trợ cả Vite client và Node.js server)
 const getEnvUrl = (): string => {
   const envUrl =
     (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL)) ||
     (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)) ||
     '';
-  if (envUrl) return envUrl;
+  if (envUrl) return sanitizeSupabaseUrl(envUrl);
 
   // Fallback to in-app custom storage if user entered directly in Debug/CSDL tab
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       const stored = localStorage.getItem('kienhoc_custom_supabase_url');
-      if (stored) return stored.trim();
+      if (stored) return sanitizeSupabaseUrl(stored);
     } catch {
       // ignore
     }
@@ -26,13 +53,13 @@ const getEnvKey = (): string => {
     (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY)) ||
     (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)) ||
     '';
-  if (envKey) return envKey;
+  if (envKey) return sanitizeSupabaseKey(envKey);
 
   // Fallback to in-app custom storage
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       const stored = localStorage.getItem('kienhoc_custom_supabase_key');
-      if (stored) return stored.trim();
+      if (stored) return sanitizeSupabaseKey(stored);
     } catch {
       // ignore
     }

@@ -13,13 +13,22 @@ export interface Database {
         Row: {
           id: string;
           auth_id: string | null;
+          email: string | null;
+          username: string | null;
+          phone: string | null;
           full_name: string;
           nickname: string | null;
+          birth_date: string | null;
           current_grade: number;
+          enrolled_courses: string[] | null;
+          school_name: string | null;
+          role: string;
+          is_verified: boolean;
           avatar: string;
           total_xp: number;
           streak_days: number;
           level: number;
+          last_login_at: string | null;
           settings: Json;
           created_at: string;
           updated_at: string;
@@ -27,13 +36,22 @@ export interface Database {
         Insert: {
           id?: string;
           auth_id?: string | null;
+          email?: string | null;
+          username?: string | null;
+          phone?: string | null;
           full_name: string;
           nickname?: string | null;
+          birth_date?: string | null;
           current_grade?: number;
+          enrolled_courses?: string[] | null;
+          school_name?: string | null;
+          role?: string;
+          is_verified?: boolean;
           avatar?: string;
           total_xp?: number;
           streak_days?: number;
           level?: number;
+          last_login_at?: string | null;
           settings?: Json;
           created_at?: string;
           updated_at?: string;
@@ -41,13 +59,22 @@ export interface Database {
         Update: {
           id?: string;
           auth_id?: string | null;
+          email?: string | null;
+          username?: string | null;
+          phone?: string | null;
           full_name?: string;
           nickname?: string | null;
+          birth_date?: string | null;
           current_grade?: number;
+          enrolled_courses?: string[] | null;
+          school_name?: string | null;
+          role?: string;
+          is_verified?: boolean;
           avatar?: string;
           total_xp?: number;
           streak_days?: number;
           level?: number;
+          last_login_at?: string | null;
           settings?: Json;
           created_at?: string;
           updated_at?: string;

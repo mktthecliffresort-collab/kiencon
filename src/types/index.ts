@@ -153,6 +153,8 @@ export interface UserProfile {
   id: string;
   name: string;
   nickname?: string;
+  username?: string;
+  phone?: string;
   birthDate?: string;
   email?: string;
   password?: string;
@@ -166,6 +168,10 @@ export interface UserProfile {
   subjectMastery: Record<string, number>; // subjectId -> 0-100%
   inventory: string[];
   themeSettings?: UserThemeSettings;
+  enrolledCourses?: string[];
+  schoolName?: string;
+  role?: 'student' | 'parent' | 'teacher' | 'admin';
+  isVerified?: boolean;
 }
 
 export interface DailyQuest {
