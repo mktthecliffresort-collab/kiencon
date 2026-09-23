@@ -46,6 +46,7 @@ export interface SignInParams {
 }
 
 export interface PendingVerification {
+  authUserId?: string;
   email: string;
   fullName: string;
   nickname?: string;
@@ -290,6 +291,12 @@ class AuthService {
           }
         } else if (authData.user) {
           debugLogger.success('SUPABASE', `Tạo tài khoản Auth Supabase thành công (UID: ${authData.user.id})`);
+          pendingData.authUserId = authData.user.id;
+          try {
+            localStorage.setItem(PENDING_VERIFICATION_KEY, JSON.stringify(pendingData));
+          } catch {
+            // ignore
+          }
           // Lưu dữ liệu ưu tiên vào public.users
           try {
             const upsertPayload: Record<string, unknown> = {
@@ -431,8 +438,8 @@ class AuthService {
       console.warn('Lỗi gọi /api/auth/verify-otp:', err);
     }
 
-    // 2. Thử verify qua Supabase OTP nếu có kết nối
-    if (client && isSupabaseConfigured()) {
+    // 2. Thử verify qua Supabase OTP nếu chưa xác thực qua server API
+    if (!serverVerified && client && isSupabaseConfigured()) {
       try {
         const { data, error } = await client.auth.verifyOtp({
           email: trimmedEmail,
@@ -486,25 +493,33 @@ class AuthService {
       };
     }
 
-    // Xác minh thành công! Tạo UserProfile và tặng điểm XP ban đầu
-    const userId = authUserId || `user_${Date.now()}`;
-
     // Khôi phục thông tin từ database nếu người dùng mở liên kết trên tab/thiết bị khác
     let dbUser: Record<string, unknown> | null = null;
-    if (!pending && client && isSupabaseConfigured()) {
+    let existingDbUserId: string | null = pending?.authUserId || authUserId || null;
+
+    if (client && isSupabaseConfigured()) {
       try {
         const { data } = await client
           .from('users')
           .select('*')
-          .or(`id.eq.${userId},auth_id.eq.${userId},email.eq.${trimmedEmail}`)
+          .eq('email', trimmedEmail)
           .maybeSingle();
         if (data) {
           dbUser = data as Record<string, unknown>;
+          if (data.id && typeof data.id === 'string') {
+            existingDbUserId = data.id;
+          }
         }
       } catch {
         // ignore
       }
     }
+
+    // Đảm bảo ID luôn tuân thủ chuẩn UUID cho bảng public.users
+    const isUuid = (str?: string | null) => Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+    const userId = isUuid(existingDbUserId)
+      ? (existingDbUserId as string)
+      : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'a0000000-0000-4000-8000-' + Date.now().toString(16).padStart(12, '0'));
 
     const fullName = pending?.fullName || (dbUser?.full_name as string) || 'Học sinh Kiến';
     const nickname = pending?.nickname || (dbUser?.nickname as string) || fullName;
@@ -551,60 +566,66 @@ class AuthService {
     // ƯU TIÊN LƯU VÀO SUPABASE DATABASE TRƯỚC
     if (client && isSupabaseConfigured()) {
       try {
-        const upsertPayload: Record<string, unknown> = {
-          id: userId,
-          auth_id: null,
-          email: trimmedEmail,
-          full_name: fullName,
-          nickname,
-          current_grade: grade,
-          avatar,
-          total_xp: INITIAL_WELCOME_XP,
-          streak_days: 1,
-          level: 1,
-          role: 'student',
-          is_verified: true,
-          updated_at: new Date().toISOString(),
-          settings: {
-            birthDate,
-            username,
-            phone,
-            schoolName,
-            enrolledCourses,
-            mode: newUserProfile.themeSettings?.mode || 'light',
-            accentColor: newUserProfile.themeSettings?.accentColor || 'amber',
-            soundEnabled: newUserProfile.themeSettings?.soundEnabled ?? true,
-            soundVolume: newUserProfile.themeSettings?.soundVolume ?? 80,
-            ambientChime: newUserProfile.themeSettings?.ambientChime ?? true,
-          },
-        };
+        if (dbUser?.id || existingDbUserId) {
+          // Hồ sơ đã có sẵn từ bước signUpStudent, chỉ cập nhật trạng thái is_verified
+          const targetId = (dbUser?.id as string) || existingDbUserId;
+          const { error: updateErr } = await client
+            .from('users')
+            .update({
+              is_verified: true,
+              total_xp: INITIAL_WELCOME_XP,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', targetId);
 
-        if (username) upsertPayload.username = username;
-        if (phone) upsertPayload.phone = phone;
-        if (schoolName) upsertPayload.school_name = schoolName;
-        if (birthDate) upsertPayload.birth_date = birthDate;
-        upsertPayload.enrolled_courses = enrolledCourses;
-
-        const { error: upsertErr } = await client.from('users').upsert(upsertPayload as any);
-        if (upsertErr) {
-          const compactPayload: Record<string, unknown> = {
+          if (!updateErr) {
+            debugLogger.success('SUPABASE', 'Cập nhật thành công is_verified = true trong public.users!');
+          } else {
+            debugLogger.warn('SUPABASE', `Không thể cập nhật is_verified: ${updateErr.message}`);
+          }
+        } else {
+          // Chưa có trong database, tạo mới an toàn với ID định dạng UUID
+          const insertPayload: Record<string, unknown> = {
             id: userId,
+            auth_id: null,
+            email: trimmedEmail,
             full_name: fullName,
             nickname,
             current_grade: grade,
             avatar,
-            total_xp: newUserProfile.xp,
+            total_xp: INITIAL_WELCOME_XP,
             streak_days: 1,
             level: 1,
             role: 'student',
             is_verified: true,
-            settings: upsertPayload.settings,
             updated_at: new Date().toISOString(),
+            settings: {
+              birthDate,
+              username,
+              phone,
+              schoolName,
+              enrolledCourses,
+              mode: newUserProfile.themeSettings?.mode || 'light',
+              accentColor: newUserProfile.themeSettings?.accentColor || 'amber',
+              soundEnabled: newUserProfile.themeSettings?.soundEnabled ?? true,
+              soundVolume: newUserProfile.themeSettings?.soundVolume ?? 80,
+              ambientChime: newUserProfile.themeSettings?.ambientChime ?? true,
+            },
           };
-          await client.from('users').upsert(compactPayload as any);
+
+          if (username) insertPayload.username = username;
+          if (phone) insertPayload.phone = phone;
+          if (schoolName) insertPayload.school_name = schoolName;
+          if (birthDate) insertPayload.birth_date = birthDate;
+          insertPayload.enrolled_courses = enrolledCourses;
+
+          const { error: insertErr } = await client.from('users').insert(insertPayload as any);
+          if (!insertErr) {
+            debugLogger.success('SUPABASE', 'Tạo mới hồ sơ đã xác thực vào public.users!');
+          }
         }
       } catch (err) {
-        console.warn('Lỗi upsert user vào Supabase:', err);
+        console.warn('Lỗi cập nhật user vào Supabase:', err);
       }
     }
 

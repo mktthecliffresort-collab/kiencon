@@ -514,9 +514,16 @@ export const supabaseService = {
           await client.from('users').update(basicPayload).eq('id', existingUser.id);
         }
       } else {
+        const isUuid = (str?: string | null) => Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+        const recordId = isUuid(profile.id)
+          ? profile.id
+          : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'b0000000-0000-4000-8000-' + Date.now().toString(16).padStart(12, '0'));
+
+        fullPayload.id = recordId;
         const { error } = await client.from('users').insert(fullPayload);
         if (error) {
           const basicPayload = {
+            id: recordId,
             full_name: profile.name,
             nickname: profile.nickname || profile.name,
             current_grade: profile.grade,
