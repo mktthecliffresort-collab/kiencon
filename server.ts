@@ -519,13 +519,13 @@ app.post("/api/auth/send-otp", async (req, res) => {
   }
 });
 
-app.post("/api/auth/verify-otp", (req, res) => {
+app.post("/api/auth/verify-otp", async (req, res) => {
   try {
     const { email, code } = req.body;
     if (!email || !code) {
       return res.status(400).json({ success: false, message: "Email và mã OTP là bắt buộc." });
     }
-    const result = verifyOtpCode(email, code);
+    const result = await verifyOtpCode(email, code);
     return res.json(result);
   } catch (error: any) {
     console.error("Lỗi xác thực OTP:", error);
@@ -555,7 +555,9 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Kiến Học server running on http://0.0.0.0:${PORT}`);
+    console.log(`  ➜  Local:   http://localhost:${PORT}/`);
+    console.log(`  ➜  Network: http://0.0.0.0:${PORT}/`);
+    console.log(`Kiến Học server running on http://localhost:${PORT}`);
   });
 }
 

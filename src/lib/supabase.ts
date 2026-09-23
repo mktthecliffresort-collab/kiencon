@@ -10,15 +10,25 @@ import { Database } from '../types/supabase';
  */
 export const sanitizeSupabaseUrl = (rawUrl?: string | null): string => {
   if (!rawUrl) return '';
-  let url = String(rawUrl).trim();
-  // Loại bỏ dấu ngoặc kép thừa nếu copy từ file cấu hình
-  url = url.replace(/^["']|["']$/g, '');
-  // Cắt bỏ trailing slashes
+  let url = String(rawUrl).trim().replace(/^["']|["']$/g, '').trim();
+  if (!url) return '';
+
+  try {
+    // Nếu là URL hợp lệ, chỉ trích xuất protocol + host (ví dụ: https://uubaunirloppudcqitum.supabase.co)
+    // Loại bỏ hoàn toàn mọi path phụ như /rest/v1, /rest, /auth/v1 bị dán nhầm từ dashboard
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const parsed = new URL(url);
+      return `${parsed.protocol}//${parsed.host}`;
+    }
+  } catch {
+    // fallback nếu URL parser lỗi
+  }
+
+  // Fallback regex dọn dẹp
   url = url.replace(/\/+$/, '');
-  // Cắt bỏ /rest/v1 hoặc /rest hoặc /auth/v1 bị dán nhầm vào cuối
-  url = url.replace(/\/rest\/v1\/?$/i, '');
-  url = url.replace(/\/rest\/?$/i, '');
-  url = url.replace(/\/auth\/v1\/?$/i, '');
+  url = url.replace(/\/rest\/v1.*$/i, '');
+  url = url.replace(/\/auth\/v1.*$/i, '');
+  url = url.replace(/\/rest.*$/i, '');
   url = url.replace(/\/+$/, '');
   return url;
 };

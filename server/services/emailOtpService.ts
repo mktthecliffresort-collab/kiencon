@@ -19,9 +19,16 @@ interface OtpRecord {
 const otpStore = new Map<string, OtpRecord>();
 
 function getSupabaseConfig() {
-  const url = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '')
-    .replace(/\/rest\/v1\/?$/, '')
-    .replace(/\/$/, '');
+  let rawUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+  let url = rawUrl;
+  try {
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      const parsed = new URL(rawUrl);
+      url = `${parsed.protocol}//${parsed.host}`;
+    }
+  } catch {
+    url = rawUrl.replace(/\/rest\/v1.*$/i, '').replace(/\/$/, '');
+  }
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.VITE_SUPABASE_ANON_KEY ||
