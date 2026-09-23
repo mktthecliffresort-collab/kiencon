@@ -46,10 +46,12 @@
 - Gỡ bỏ thẻ trạng thái "Tài Khoản Đã Kết Nối CSDL" gây chiếm diện tích.
 - Tối ưu hàng nút chức năng cuối modal thành thiết kế tinh tế, dễ thao tác.
 
-#### 3. Bổ Sung Tài Liệu Hướng Dẫn & Readme GitHub (`README.md`)
-- Soạn thảo tài liệu `README.md` toàn diện chuẩn bị cho việc công bố trên GitHub.
-- Cung cấp hướng dẫn chi tiết dành riêng cho 2 nhóm đối tượng: Học sinh (Tạo tài khoản, nhận OTP, phương pháp 4 bước, XP/Streak) và Thầy cô / Ban Quản Trị (Truy cập `/admincp`, đóng vai 6 chức năng, quản lý bài học, lớp học và CSDL).
-- Khai báo đầy đủ kiến trúc dự án, sơ đồ luồng phương pháp sư phạm 4 bước, cấu trúc thư mục và hướng dẫn triển khai môi trường phát triển / sản xuất.
+#### 3. Bổ Sung Tài Liệu Hướng Dẫn & Readme GitHub Thân Thiện (`README.md`)
+- Soạn thảo tài liệu `README.md` tinh gọn, thân thiện, tập trung 100% vào đối tượng người dùng cuối là **Học Sinh và Phụ Huynh**.
+- Lược bỏ các thuật ngữ kỹ thuật phức tạp, mã nguồn hoặc kiến trúc quản trị chuyên sâu.
+- Hướng dẫn 3 bước khởi đầu đơn giản: Đăng ký & nhận mã OTP chào mừng (+250 XP), chọn bài học, phương pháp tiếp cận 4 bước chuẩn khoa học (Khám phá, Luyện tập, Vận dụng, Giảng lại).
+- Hướng dẫn dành riêng cho Ba Mẹ: Cách đồng hành, khích lệ ngọn lửa chuyên cần (Streak), phương pháp Feynman nghe con giảng lại và theo dõi tiến độ qua Hồ sơ.
+- Giải đáp các câu hỏi thường gặp (FAQ) về thiết bị, đa nền tảng, khôi phục mật khẩu và tính năng bảo mật tài khoản.
 
 ---
 
