@@ -418,48 +418,28 @@ export const Header: React.FC<HeaderProps> = ({
               {isMuted ? <VolumeX className="w-4 h-4 text-stone-400" /> : <Volume2 className="w-4 h-4 text-amber-600" />}
             </button>
 
-            {/* Profile & Settings Button (Guaranteed to be visible on Tablet & Desktop) */}
-            <button
-              id="desktop-header-profile"
-              onClick={() => {
-                audioService.playBoingPop();
-                onOpenProfile();
-              }}
-              className="flex items-center gap-1 lg:gap-1.5 p-1.5 lg:px-2.5 lg:py-1.5 rounded-2xl bg-white hover:bg-amber-50 border-2 border-amber-300 text-amber-950 font-black text-xs sm:text-sm active:scale-95 shadow-2xs transition-all shrink-0 relative"
-              title="Quản lý hồ sơ, cài đặt & cơ sở dữ liệu Supabase"
-            >
-              <div className="w-6 h-6 lg:w-7 lg:h-7 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-sm lg:text-base shrink-0 relative">
-                {user.avatar || '🐜'}
-                <span
-                  className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"
-                  title="Supabase Database Ready"
-                />
-              </div>
-              <div className="text-left hidden xl:block">
-                <div className="leading-tight truncate max-w-[90px] font-black text-amber-950">
-                  {user.nickname || user.name || 'Bạn Kiến'}
-                </div>
-              </div>
-              <div className="flex items-center gap-0.5">
-                <Database className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <Settings className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-amber-600 animate-spin-slow hover:text-amber-800 shrink-0" />
-              </div>
-            </button>
-
-            {/* Admin Management Portal Button */}
-            {onOpenAdmin && (
+            {/* Profile & Settings Button (Chỉ hiển thị khi đã đăng nhập) */}
+            {isAuthenticated && (
               <button
-                id="desktop-header-admin"
+                id="desktop-header-profile"
                 onClick={() => {
                   audioService.playBoingPop();
-                  onOpenAdmin();
+                  onOpenProfile();
                 }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-gradient-to-r from-purple-50 to-stone-100 hover:from-purple-100 hover:to-stone-200 border-2 border-purple-300 text-purple-950 font-black text-xs active:scale-95 shadow-2xs transition-all shrink-0"
-                title="Trang Quản Trị Hệ Thống Admin"
+                className="flex items-center gap-1 lg:gap-1.5 p-1.5 lg:px-2.5 lg:py-1.5 rounded-2xl bg-white hover:bg-amber-50 border-2 border-amber-300 text-amber-950 font-black text-xs sm:text-sm active:scale-95 shadow-2xs transition-all shrink-0 relative"
+                title="Quản lý hồ sơ & cài đặt học tập"
               >
-                <ShieldCheck className="w-4 h-4 text-purple-700 shrink-0" />
-                <span className="hidden xl:inline">Quản Trị</span>
-                <span className="text-[10px] px-1 py-0.2 rounded bg-purple-200 text-purple-900 font-black uppercase">Admin</span>
+                <div className="w-6 h-6 lg:w-7 lg:h-7 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-sm lg:text-base shrink-0 relative">
+                  {user.avatar || '🐜'}
+                </div>
+                <div className="text-left hidden xl:block">
+                  <div className="leading-tight truncate max-w-[90px] font-black text-amber-950">
+                    {user.nickname || user.name || 'Bạn Kiến'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-0.5">
+                  <Settings className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-amber-600 animate-spin-slow hover:text-amber-800 shrink-0" />
+                </div>
               </button>
             )}
 
@@ -483,12 +463,11 @@ export const Header: React.FC<HeaderProps> = ({
                   audioService.playBoingPop();
                   if (onOpenAuth) onOpenAuth('signup');
                 }}
-                className="flex items-center gap-1 px-2 py-1 lg:px-2.5 lg:py-1.5 rounded-2xl btn-ant-3d-amber text-amber-950 font-black text-xs hover:brightness-105 active:scale-95 transition-all shadow-xs shrink-0"
-                title="Tạo tài khoản nhận ngay +250 XP ban đầu"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl btn-ant-3d-amber text-amber-950 font-black text-xs hover:brightness-105 active:scale-95 transition-all shadow-xs shrink-0"
+                title="Đăng ký tài khoản học tập"
               >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">Đăng ký</span>
-                <span className="bg-amber-500/20 text-amber-900 px-1 py-0.5 rounded font-black text-[10px]">+250 XP</span>
+                <UserPlus className="w-4 h-4 text-amber-800" />
+                <span>Đăng ký</span>
               </button>
             )}
           </div>
@@ -579,33 +558,19 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </button>
 
-              {/* Profile / Settings Button */}
-              <button
-                id="mobile-header-profile"
-                onClick={() => {
-                  audioService.playBoingPop();
-                  onOpenProfile();
-                }}
-                className="p-1 px-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black text-xs flex items-center gap-1 active:scale-90 transition-all shrink-0"
-                title="Quản lý hồ sơ & cài đặt"
-              >
-                <span className="text-sm leading-none">{user.avatar || '🐜'}</span>
-                <Settings className="w-3 h-3 text-amber-700 shrink-0" />
-              </button>
-
-              {/* Admin Button on Mobile */}
-              {onOpenAdmin && (
+              {/* Profile / Settings Button (Chỉ hiển thị khi đã đăng nhập) */}
+              {isAuthenticated && (
                 <button
-                  id="mobile-header-admin"
+                  id="mobile-header-profile"
                   onClick={() => {
                     audioService.playBoingPop();
-                    onOpenAdmin();
+                    onOpenProfile();
                   }}
-                  className="p-1 px-1.5 rounded-xl bg-purple-100 hover:bg-purple-200 border border-purple-300 text-purple-900 font-black text-xs flex items-center gap-1 active:scale-90 transition-all shrink-0"
-                  title="Trang Quản Trị Admin"
+                  className="p-1 px-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 font-black text-xs flex items-center gap-1 active:scale-90 transition-all shrink-0"
+                  title="Quản lý hồ sơ & cài đặt"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-purple-700 shrink-0" />
-                  <span className="text-[10px] font-black">Admin</span>
+                  <span className="text-sm leading-none">{user.avatar || '🐜'}</span>
+                  <Settings className="w-3 h-3 text-amber-700 shrink-0" />
                 </button>
               )}
 
@@ -629,11 +594,11 @@ export const Header: React.FC<HeaderProps> = ({
                     audioService.playBoingPop();
                     if (onOpenAuth) onOpenAuth('signup');
                   }}
-                  className="px-2 py-1 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 font-black text-[11px] flex items-center gap-1 active:scale-95 shadow-2xs shrink-0"
-                  title="Tạo tài khoản nhận ngay +250 XP ban đầu"
+                  className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 font-black text-xs flex items-center gap-1 active:scale-95 shadow-2xs shrink-0"
+                  title="Đăng ký tài khoản"
                 >
-                  <UserPlus className="w-3 h-3" />
-                  <span className="font-black">+250XP</span>
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span className="font-black">Đăng ký</span>
                 </button>
               )}
             </div>

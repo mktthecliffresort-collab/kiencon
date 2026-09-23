@@ -7,6 +7,19 @@ import { debugLogger } from './debugLogger';
 export const INITIAL_WELCOME_XP = 250; // Điểm XP tặng thưởng ban đầu khi tạo tài khoản thành công
 const AUTH_SESSION_KEY = 'kienhoc_auth_session_v2';
 const PENDING_VERIFICATION_KEY = 'kienhoc_pending_verification_v2';
+const CROSS_TAB_AUTH_CHANNEL = 'kienhoc_auth_broadcast_bus';
+const CROSS_TAB_AUTH_EVENT_KEY = 'kienhoc_auth_sync_event';
+
+/**
+ * Tạo tên đăng nhập (Username) ngẫu nhiên, thân thiện cho học sinh Kiến Học
+ * Ví dụ: kien_con_4821, kien_cham_9230
+ */
+export function generateRandomUsername(): string {
+  const adjectives = ['con', 'nho', 'cham', 'tri', 'dung', 'vui', 'sao', 'vang', 'kham_pha'];
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  return `kien_${adj}_${randomNum}`;
+}
 
 export interface AuthSessionData {
   id: string;
@@ -63,12 +76,101 @@ export interface PendingVerification {
   createdAt: number;
 }
 
+const isUuid = (str?: string | null): boolean =>
+  Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+
 class AuthService {
   private currentSession: AuthSessionData | null = null;
   private listeners: Array<(session: AuthSessionData | null) => void> = [];
+  private syncChannel: BroadcastChannel | null = null;
 
   constructor() {
     this.restoreSession();
+    this.initCrossTabSync();
+  }
+
+  /**
+   * Đồng bộ trạng thái đăng nhập / đăng xuất tức thì giữa các tab cùng trình duyệt
+   */
+  private initCrossTabSync(): void {
+    if (typeof window === 'undefined') return;
+
+    // 1. Kênh BroadcastChannel (Tức thì, sub-millisecond trên các trình duyệt hiện đại)
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        this.syncChannel = new BroadcastChannel(CROSS_TAB_AUTH_CHANNEL);
+        this.syncChannel.onmessage = (event) => {
+          this.handleCrossTabMessage(event.data);
+        };
+      } catch (err) {
+        console.warn('[CrossTabAuth] BroadcastChannel không khả dụng:', err);
+      }
+    }
+
+    // 2. Storage event listener (Chuẩn W3C hoạt động 100% khi tab khác chỉnh sửa LocalStorage)
+    window.addEventListener('storage', (event: StorageEvent) => {
+      if (event.key === AUTH_SESSION_KEY) {
+        if (!event.newValue) {
+          // Tab khác vừa xóa session hoặc ấn Logout
+          this.handleRemoteSignOut();
+        } else {
+          // Tab khác vừa đăng nhập hoặc cập nhật session
+          try {
+            const parsed = JSON.parse(event.newValue);
+            this.handleRemoteSignIn(parsed);
+          } catch {
+            // ignore
+          }
+        }
+      } else if (event.key === CROSS_TAB_AUTH_EVENT_KEY && event.newValue) {
+        try {
+          const payload = JSON.parse(event.newValue);
+          if (payload.type === 'LOGOUT') {
+            this.handleRemoteSignOut();
+          } else if (payload.type === 'LOGIN' && payload.session) {
+            this.handleRemoteSignIn(payload.session);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    });
+  }
+
+  private handleCrossTabMessage(data: any): void {
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'LOGOUT') {
+      this.handleRemoteSignOut();
+    } else if (data.type === 'LOGIN' && data.session) {
+      this.handleRemoteSignIn(data.session);
+    }
+  }
+
+  private handleRemoteSignOut(): void {
+    if (this.currentSession !== null) {
+      this.currentSession = null;
+      this.notify();
+    }
+  }
+
+  private handleRemoteSignIn(session: AuthSessionData): void {
+    if (!this.currentSession || this.currentSession.id !== session.id || this.currentSession.xp !== session.xp) {
+      this.currentSession = session;
+      this.notify();
+    }
+  }
+
+  private broadcastEvent(type: 'LOGIN' | 'LOGOUT', session?: AuthSessionData | null): void {
+    try {
+      this.syncChannel?.postMessage({ type, session, timestamp: Date.now() });
+    } catch {
+      // ignore
+    }
+    try {
+      localStorage.setItem(CROSS_TAB_AUTH_EVENT_KEY, JSON.stringify({ type, session, timestamp: Date.now() }));
+    } catch {
+      // ignore
+    }
   }
 
   // Khôi phục session từ localStorage
@@ -100,6 +202,85 @@ class AuthService {
     };
   }
 
+  /**
+   * Kiểm tra tính khả dụng và tính hợp lệ của username trên Supabase realtime
+   */
+  public async checkUsernameAvailability(
+    rawUsername: string,
+    excludeUserId?: string
+  ): Promise<{
+    available: boolean;
+    formatValid: boolean;
+    message: string;
+    normalized: string;
+  }> {
+    const normalized = rawUsername.trim().toLowerCase().replace(/\s+/g, '');
+
+    // Định dạng: 3 đến 20 ký tự, chữ thường, số và dấu gạch dưới (_)
+    const validRegex = /^[a-z0-9_]{3,20}$/;
+    if (!validRegex.test(normalized)) {
+      let msg = 'Tên đăng nhập phải từ 3 đến 20 ký tự (chữ thường, số và _).';
+      if (normalized.length < 3) msg = 'Tên đăng nhập quá ngắn (tối thiểu 3 ký tự).';
+      else if (normalized.length > 20) msg = 'Tên đăng nhập quá dài (tối đa 20 ký tự).';
+      else msg = 'Tên đăng nhập chỉ được chứa chữ cái, số và dấu gạch dưới (_).';
+      return {
+        available: false,
+        formatValid: false,
+        message: msg,
+        normalized,
+      };
+    }
+
+    const client = getSupabaseClient();
+    if (!client || !isSupabaseConfigured()) {
+      return {
+        available: true,
+        formatValid: true,
+        message: 'Tên đăng nhập hợp lệ và có thể sử dụng!',
+        normalized,
+      };
+    }
+
+    try {
+      let query = client.from('users').select('id, username').eq('username', normalized);
+      if (excludeUserId) {
+        query = query.neq('id', excludeUserId);
+      }
+      const { data, error } = await query;
+      if (error) {
+        return {
+          available: true,
+          formatValid: true,
+          message: 'Tên đăng nhập khả dụng!',
+          normalized,
+        };
+      }
+
+      if (data && data.length > 0) {
+        return {
+          available: false,
+          formatValid: true,
+          message: 'Tên đăng nhập này đã có người sử dụng. Vui lòng chọn tên khác!',
+          normalized,
+        };
+      }
+
+      return {
+        available: true,
+        formatValid: true,
+        message: 'Tên đăng nhập hợp lệ và có thể sử dụng!',
+        normalized,
+      };
+    } catch {
+      return {
+        available: true,
+        formatValid: true,
+        message: 'Tên đăng nhập khả dụng!',
+        normalized,
+      };
+    }
+  }
+
   private notify() {
     this.listeners.forEach((cb) => cb(this.currentSession));
   }
@@ -111,6 +292,7 @@ class AuthService {
     } catch (e) {
       console.warn('Không thể lưu session:', e);
     }
+    this.broadcastEvent('LOGIN', session);
     this.notify();
   }
 
@@ -121,6 +303,7 @@ class AuthService {
     } catch (e) {
       console.warn('Không thể xóa session:', e);
     }
+    this.broadcastEvent('LOGOUT');
     this.notify();
   }
 
@@ -168,6 +351,24 @@ class AuthService {
       };
     }
 
+    // Kiểm tra hoặc tự sinh Tên đăng nhập (Username)
+    let finalUsername = '';
+    if (username && username.trim()) {
+      const availCheck = await this.checkUsernameAvailability(username.trim());
+      if (!availCheck.available) {
+        return {
+          success: false,
+          requiresVerification: false,
+          message: availCheck.message,
+          error: 'INVALID_USERNAME',
+        };
+      }
+      finalUsername = availCheck.normalized;
+    } else {
+      // Tự động cấp tên đăng nhập ngẫu nhiên nếu người dùng để trống
+      finalUsername = generateRandomUsername();
+    }
+
     // Tạo mã xác minh 6 số ngẫu nhiên
     const demoCode = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -191,7 +392,7 @@ class AuthService {
       email: trimmedEmail,
       fullName: fullName.trim(),
       nickname: nickname?.trim() || fullName.trim(),
-      username: username?.trim() || undefined,
+      username: finalUsername,
       phone: phone?.trim() || undefined,
       schoolName: schoolName?.trim() || undefined,
       enrolledCourses: enrolledCourses || (grade === 8 ? ['khtn_8'] : ['toan_5']),
@@ -315,7 +516,7 @@ class AuthService {
               updated_at: new Date().toISOString(),
               settings: {
                 birthDate,
-                username: username?.trim() || undefined,
+                username: finalUsername,
                 phone: phone?.trim() || undefined,
                 schoolName: schoolName?.trim() || undefined,
                 enrolledCourses: enrolledCourses || (grade === 8 ? ['khtn_8'] : ['toan_5']),
@@ -327,7 +528,7 @@ class AuthService {
               },
             };
 
-            if (username?.trim()) upsertPayload.username = username.trim();
+            upsertPayload.username = finalUsername;
             if (phone?.trim()) upsertPayload.phone = phone.trim();
             if (schoolName?.trim()) upsertPayload.school_name = schoolName.trim();
             if (birthDate) upsertPayload.birth_date = birthDate;
@@ -388,6 +589,7 @@ class AuthService {
     code: string
   ): Promise<{
     success: boolean;
+    alreadyVerified?: boolean;
     user?: UserProfile;
     xpBonusAwarded?: number;
     message: string;
@@ -397,6 +599,90 @@ class AuthService {
     const trimmedCode = code.trim();
 
     debugLogger.log('AUTH', `Bắt đầu xác thực mã OTP cho: ${trimmedEmail}`, { code: trimmedCode });
+
+    const client = getSupabaseClient();
+
+    // 0. KIỂM TRA XEM TÀI KHOẢN ĐÃ ĐƯỢC XÁC MINH TRƯỚC ĐÓ CHƯA (CHỈ XÁC MINH 1 LẦN DUY NHẤT)
+    if (client && isSupabaseConfigured()) {
+      try {
+        const { data: existingDbUser } = await client
+          .from('users')
+          .select('*')
+          .eq('email', trimmedEmail)
+          .maybeSingle();
+
+        if (existingDbUser && existingDbUser.is_verified === true) {
+          debugLogger.log('AUTH', `Tài khoản ${trimmedEmail} ĐÃ ĐƯỢC XÁC MINH trước đó.`);
+          // Xóa thông tin pending khỏi localStorage để tránh xác minh lặp lại
+          try {
+            localStorage.removeItem(PENDING_VERIFICATION_KEY);
+          } catch {
+            // ignore
+          }
+
+          const userSettings = (existingDbUser.settings && typeof existingDbUser.settings === 'object'
+            ? existingDbUser.settings
+            : {}) as Record<string, unknown>;
+          const userGrade = (Number(existingDbUser.current_grade) === 8 ? 8 : 5) as GradeLevel;
+
+          const existingProfile: UserProfile = {
+            id: existingDbUser.id,
+            name: existingDbUser.full_name || 'Học sinh Kiến',
+            nickname: existingDbUser.nickname || existingDbUser.full_name || 'Học sinh Kiến',
+            username: (existingDbUser as any).username || (userSettings.username as string) || undefined,
+            phone: (existingDbUser as any).phone || (userSettings.phone as string) || undefined,
+            schoolName: (existingDbUser as any).school_name || (userSettings.schoolName as string) || undefined,
+            enrolledCourses: (existingDbUser as any).enrolled_courses || (userSettings.enrolledCourses as string[]) || (userGrade === 8 ? ['khtn_8'] : ['toan_5']),
+            role: ((existingDbUser as any).role as any) || 'student',
+            isVerified: true,
+            birthDate: (userSettings.birthDate as string) || '2014-08-15',
+            email: trimmedEmail,
+            grade: userGrade,
+            avatar: existingDbUser.avatar || '🐜',
+            xp: typeof existingDbUser.total_xp === 'number' ? existingDbUser.total_xp : INITIAL_WELCOME_XP,
+            level: existingDbUser.level || 1,
+            streakDays: existingDbUser.streak_days || 1,
+            lastActiveDate: new Date().toISOString().split('T')[0],
+            completedLessons: [],
+            subjectMastery: {},
+            inventory: ['badge_welcome_ant'],
+            themeSettings: {
+              mode: (userSettings.mode as any) || 'light',
+              accentColor: (userSettings.accentColor as any) || 'amber',
+              soundEnabled: userSettings.soundEnabled !== false,
+              soundVolume: (userSettings.soundVolume as number) ?? 80,
+              ambientChime: userSettings.ambientChime !== false,
+            },
+          };
+
+          this.saveSession({
+            id: existingProfile.id,
+            email: trimmedEmail,
+            fullName: existingProfile.name,
+            nickname: existingProfile.nickname,
+            username: existingProfile.username,
+            phone: existingProfile.phone,
+            schoolName: existingProfile.schoolName,
+            enrolledCourses: existingProfile.enrolledCourses,
+            role: 'student',
+            birthDate: existingProfile.birthDate,
+            grade: userGrade,
+            avatar: existingProfile.avatar,
+            xp: existingProfile.xp,
+            isVerified: true,
+          });
+
+          return {
+            success: false,
+            alreadyVerified: true,
+            user: existingProfile,
+            message: 'Tài khoản này đã được xác minh thành công trước đó rồi! Bạn có thể bắt đầu học tập ngay.',
+          };
+        }
+      } catch (checkErr) {
+        console.warn('Lỗi kiểm tra trạng thái xác minh trước đó:', checkErr);
+      }
+    }
 
     // Đọc thông tin chờ xác minh
     let pending: PendingVerification | null = null;
@@ -412,7 +698,6 @@ class AuthService {
       // ignore
     }
 
-    const client = getSupabaseClient();
     let authUserId: string | null = null;
 
     // 1. Thử verify qua server API endpoint trước
@@ -789,11 +1074,13 @@ class AuthService {
           // Lấy hồ sơ từ bảng public.users
           let dbUser = null;
           try {
-            const { data } = await client
-              .from('users')
-              .select('*')
-              .or(`auth_id.eq.${authUser.id},id.eq.${authUser.id}`)
-              .maybeSingle();
+            let uQuery = client.from('users').select('*');
+            if (authUser.id && isUuid(authUser.id)) {
+              uQuery = uQuery.or(`auth_id.eq.${authUser.id},id.eq.${authUser.id}`);
+            } else if (trimmedEmail) {
+              uQuery = uQuery.eq('email', trimmedEmail.toLowerCase().trim());
+            }
+            const { data } = await uQuery.maybeSingle();
             dbUser = data;
           } catch {
             // ignore
@@ -994,9 +1281,14 @@ class AuthService {
       }
 
       // 2. Truy vấn trực tiếp từ bảng public.users
+      const isUuid = (str?: string | null) => Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
       let query = client.from('users').select('*');
-      if (targetId) {
+      if (targetId && isUuid(targetId)) {
         query = query.or(`auth_id.eq.${targetId},id.eq.${targetId}`);
+      } else if (targetEmail) {
+        query = query.eq('email', targetEmail.toLowerCase().trim()).limit(1);
+      } else if (session?.username) {
+        query = query.eq('username', session.username.toLowerCase().trim()).limit(1);
       } else if (session?.grade) {
         query = query.eq('current_grade', session.grade).order('updated_at', { ascending: false }).limit(1);
       } else {

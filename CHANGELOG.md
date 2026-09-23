@@ -1,5 +1,64 @@
 # LỊCH SỬ THAY ĐỔI & NÂNG CẤP HỆ THỐNG GIAO DIỆN (UI/UX CHANGELOG)
 
+## [Phiên bản 2.2.0] - Ngày 23/09/2026
+
+### 📌 Bối cảnh & Yêu cầu Nâng Cấp
+1. **Làm sạch Form Đăng ký / Xác thực (AuthModal)**:
+   - Loại bỏ các thành phần rườm rà, nhãn thừa thãi người dùng đã khoanh đỏ (Badge "Bắt buộc đăng nhập", nhãn "Chỉ hiển thị riêng Lớp bạn đã chọn").
+   - Tinh gọn placeholder ô nhập username: từ `bỏ trống sẽ tạo ngẫu nhiên (ví dụ: kien_vui_1234)` chuyển sang định dạng tinh gọn `Ví dụ: kien_vui_123`.
+   - Gỡ bỏ hoàn toàn ô kiểm thử nhanh "Mã xác nhận nhanh" và nút "🛠️ Chẩn đoán gửi email" trên giao diện học sinh.
+2. **Đồng bộ Đăng xuất Đa Tab (Cross-Tab Logout Synchronization)**:
+   - Khi người dùng mở ứng dụng trên 2 hoặc nhiều tab khác nhau trong cùng trình duyệt: khi bấm đăng xuất ở 1 tab, tất cả các tab còn lại phải lập tức đăng xuất đồng thời, đóng các bài học đang mở và hiện bảng đăng nhập/đăng ký bắt buộc.
+3. **Tách Bảng Riêng cho Quản Trị Viên (`admin_users` / `staff_accounts`)**:
+   - Chuyển đổi mô hình CSDL: Không dùng chung bảng `public.users` của học sinh cho tài khoản quản trị.
+   - Tạo bảng `public.admin_users` và view `public.staff_accounts` trong Supabase với cấu trúc phân quyền Role-Based Access Control (RBAC) chi tiết, RLS riêng biệt và nạp sẵn 6 tài khoản mẫu.
+4. **Quy Chuẩn Hóa Nguyên Tắc Phát Triển (`RULES.md`)**:
+   - Thiết lập bộ quy tắc bắt buộc: Cấm nhãn giải thích dài dòng trên UI, bắt buộc đồng bộ đa tab, bắt buộc phân tách bảng admin và bắt buộc ghi changelog sau mỗi phiên code.
+
+---
+
+### 🛠️ Chi tiết các Thay đổi & Nâng cấp Kỹ thuật
+
+#### 1. Tinh Giản Form Đăng Ký & Xác Minh Email (`src/components/AuthModal.tsx`)
+- **Loại bỏ nhãn thừa**:
+  - Gỡ bỏ badge `Bắt buộc đăng nhập` trên thanh tiêu đề modal.
+  - Sửa đổi placeholder trường Username từ dòng hướng dẫn dài sang ví dụ trực quan `Ví dụ: kien_vui_123`.
+  - Gỡ bỏ nhãn `Chỉ hiển thị riêng Lớp bạn đã chọn` bên cạnh mục Chọn Lớp Học.
+- **Dọn dẹp công cụ kiểm thử**:
+  - Xóa bỏ khối hiển thị "Mã xác nhận nhanh" (`demoCodeGiven`) và nút "Điền nhanh".
+  - Gỡ bỏ nút "🛠️ Chẩn đoán gửi email", đảm bảo giao diện học sinh 100% chuẩn sản xuất (production-ready).
+
+#### 2. Cơ Chế Đồng Bộ Trạng Thái Đa Tab (`src/services/authService.ts` & `src/App.tsx`)
+- Tích hợp 2 kênh đồng bộ thời gian thực:
+  - **Kênh 1 - `BroadcastChannel('kienhoc_auth_broadcast_bus')`**: Phát tín hiệu sub-millisecond tới tất cả các tab khác khi có sự kiện `LOGIN` hoặc `LOGOUT`.
+  - **Kênh 2 - `window.addEventListener('storage')`**: Đón bắt sự kiện chuẩn W3C khi `localStorage` thay đổi khóa session hoặc khóa sự kiện `kienhoc_auth_sync_event`.
+- Trong `App.tsx`:
+  - Hook lắng nghe `authService.subscribe` phát hiện trạng thái session bị xóa lập tức đóng toàn bộ modal con, bài học đang học dở, đặt `isAuthenticated = false`, mở bảng `AuthModal` bắt buộc và thông báo Toast tới người dùng.
+
+#### 3. Thiết Kế Cơ Sở Dữ Liệu Tách Biệt Cho Admin (`supabase/migrations/20260923_create_admin_users_table.sql`)
+- Tạo bảng `public.admin_users` với các trường:
+  - `id` (UUID), `auth_id` (UUID), `email` (UNIQUE), `full_name`, `role`, `role_title`, `department`, `permissions` (TEXT[]), `avatar`, `status`, `notes`, `two_factor_enabled`, `last_login_at`.
+- Thiết lập chỉ mục `idx_admin_users_email`, `idx_admin_users_role`, `idx_admin_users_status`.
+- Tạo view tương thích `public.staff_accounts`.
+- Cập nhật đồng bộ vào `supabase/schema.sql` và `supabase/seed.sql`.
+- Cập nhật hiển thị trong trang quản trị `/admincp` (`AdminCPPage.tsx`).
+
+#### 4. Ban Hành Tài Liệu Quy Chuẩn (`RULES.md`)
+- Ban hành 4 nguyên tắc phát triển phần mềm cho dự án Kiến Học:
+  - **Quy tắc 1**: Anti-Clutter UI / Zero-wordiness (Không nhãn thừa, không chữ dài).
+  - **Quy tắc 2**: Cross-tab Session Synchronization.
+  - **Quy tắc 3**: Strict RBAC Database Isolation (Bảng Admin riêng biệt).
+  - **Quy tắc 4**: Mandatory Changelog & Traceability.
+
+---
+
+### ✅ Kết Quả Kiểm Thử (Verification)
+- Kiểm tra biên dịch TypeScript & Vite build: 100% Passed.
+- Đăng xuất thử nghiệm trên đa tab: Tất cả các tab phản hồi tức thì và quay về trạng thái đăng xuất.
+- Modal xác thực học sinh sạch sẽ, thẩm mỹ cao và chuẩn công thái học.
+
+---
+
 ## [Phiên bản 2.1.0] - Ngày 22/09/2026
 
 ### 📌 Bối cảnh & Yêu cầu Nâng Cấp

@@ -46,6 +46,36 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON public.users (username);
 CREATE INDEX IF NOT EXISTS idx_users_phone ON public.users (phone);
 CREATE INDEX IF NOT EXISTS idx_users_current_grade ON public.users (current_grade);
 
+-- ==============================================================================
+-- 2.1. BẢNG DÀNH RIÊNG CHO QUẢN TRỊ VIÊN & NHÂN SỰ (ADMIN_USERS / STAFF_ACCOUNTS)
+-- Tách biệt tuyệt đối khỏi bảng học sinh (public.users) để đảm bảo bảo mật phân tầng (RBAC)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.admin_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    auth_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    email TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    role TEXT NOT NULL, -- 'super_admin', 'lesson_manager', 'subject_manager', 'grade_manager', 'content_manager', 'student_manager'
+    role_title TEXT NOT NULL,
+    department TEXT DEFAULT 'Ban Quản Trị Kiến Học',
+    permissions TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    avatar TEXT NOT NULL DEFAULT '👑',
+    status TEXT NOT NULL DEFAULT 'active', -- 'active', 'suspended', 'inactive'
+    phone TEXT,
+    notes TEXT,
+    two_factor_enabled BOOLEAN NOT NULL DEFAULT false,
+    last_login_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_users_email ON public.admin_users (email);
+CREATE INDEX IF NOT EXISTS idx_admin_users_role ON public.admin_users (role);
+CREATE INDEX IF NOT EXISTS idx_admin_users_status ON public.admin_users (status);
+
+CREATE OR REPLACE VIEW public.staff_accounts AS
+SELECT * FROM public.admin_users;
+
 CREATE TABLE IF NOT EXISTS public.user_inventory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,

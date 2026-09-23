@@ -39,6 +39,7 @@ interface AuthModalProps {
   currentGrade: GradeLevel;
   onSwitchGrade?: (grade: GradeLevel) => void;
   onOpenDebug?: () => void;
+  isMandatory?: boolean;
 }
 
 const AVATARS = [
@@ -60,6 +61,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   currentGrade,
   onSwitchGrade,
   onOpenDebug,
+  isMandatory = false,
 }) => {
   const [mode, setMode] = useState<'signin' | 'signup' | 'verification_pending' | 'verify' | 'welcome' | 'signout_confirm'>(initialMode);
 
@@ -89,6 +91,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Newly registered user for welcome screen
   const [welcomeUser, setWelcomeUser] = useState<UserProfile | null>(null);
+
+  // Realtime username availability checker state
+  const [usernameStatus, setUsernameStatus] = useState<{
+    checking: boolean;
+    available?: boolean;
+    formatValid?: boolean;
+    message?: string;
+  }>({ checking: false });
+
+  // Kiểm tra username realtime trên Supabase khi người dùng gõ
+  useEffect(() => {
+    const trimmed = username.trim();
+    if (!trimmed) {
+      setUsernameStatus({ checking: false });
+      return;
+    }
+
+    setUsernameStatus({ checking: true });
+    const timer = setTimeout(async () => {
+      const res = await authService.checkUsernameAvailability(trimmed);
+      setUsernameStatus({
+        checking: false,
+        available: res.available,
+        formatValid: res.formatValid,
+        message: res.message,
+      });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [username]);
 
   // Sync mode when modal opens
   useEffect(() => {
@@ -177,6 +209,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    // Kiểm tra username trước khi gửi nếu người dùng có nhập
+    if (username.trim()) {
+      if (usernameStatus.available === false) {
+        audioService.playClick();
+        setErrorMessage(usernameStatus.message || 'Tên đăng nhập không khả dụng. Vui lòng chọn tên khác!');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       // 1. Kiểm tra xác thực xem người dùng đã tồn tại chưa (email, username, phone)
       const existCheck = await authService.checkUserExists({
@@ -240,6 +282,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       const result = await authService.verifyEmail(email, verificationCode);
+
+      // Nếu tài khoản đã được xác minh trước đó (ngăn chặn xác minh lần 2)
+      if (result.alreadyVerified) {
+        audioService.playSuccess();
+        setToastMessage(result.message);
+        setSuccessInfo(result.message);
+        if (result.user) {
+          onAuthSuccess(result.user, result.message);
+          if (onSwitchGrade && result.user.grade !== currentGrade) {
+            onSwitchGrade(result.user.grade);
+          }
+          setTimeout(() => {
+            onClose();
+          }, 1500);
+        }
+        return;
+      }
 
       if (result.success && result.user) {
         audioService.playCelebrationBurst();
@@ -320,39 +379,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   return (
     <div
       id="auth-modal-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs transition-opacity duration-300 overflow-y-auto"
-      onClick={onClose}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto ${
+        isMandatory ? 'bg-stone-950/85 backdrop-blur-md' : 'bg-stone-900/60 backdrop-blur-xs'
+      }`}
+      onClick={isMandatory ? undefined : onClose}
     >
       <div
         id="auth-modal-container"
-        className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border-4 border-amber-200 overflow-hidden transform transition-all my-auto"
+        className={`relative w-full ${
+          isMandatory
+            ? 'max-w-xl sm:max-w-2xl ring-8 ring-amber-400/25 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)]'
+            : 'max-w-md'
+        } bg-white rounded-3xl shadow-2xl border-4 border-amber-300 overflow-hidden transform transition-all my-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Decor */}
         <div className="bg-gradient-to-r from-amber-400 via-amber-500 to-emerald-500 px-6 py-5 text-white relative">
-          <button
-            onClick={() => {
-              audioService.playClick();
-              onClose();
-            }}
-            className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
-            title="Đóng cửa sổ"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!isMandatory && (
+            <button
+              onClick={() => {
+                audioService.playClick();
+                onClose();
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+              title="Đóng cửa sổ"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-white text-amber-600 flex items-center justify-center text-2xl shadow-md border border-amber-100 shrink-0">
               {mode === 'welcome' ? '🎁' : mode === 'signout_confirm' ? '👋' : '🐜'}
             </div>
-            <div>
-              <h2 className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
-                {mode === 'signin' && 'Đăng Nhập Vương Quốc'}
-                {mode === 'signup' && 'Gia Nhập Vương Quốc Kiến'}
-                {(mode === 'verification_pending' || mode === 'verify') && 'Xác Minh Email Học Sinh'}
-                {mode === 'welcome' && 'Thưởng Chào Mừng! 🎉'}
-                {mode === 'signout_confirm' && 'Thoát Tài Khoản'}
-              </h2>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
+                  {mode === 'signin' && 'Đăng Nhập Vương Quốc'}
+                  {mode === 'signup' && 'Gia Nhập Vương Quốc Kiến'}
+                  {(mode === 'verification_pending' || mode === 'verify') && 'Xác Minh Email Học Sinh'}
+                  {mode === 'welcome' && 'Thưởng Chào Mừng! 🎉'}
+                  {mode === 'signout_confirm' && 'Thoát Tài Khoản'}
+                </h2>
+              </div>
               <p className="text-xs text-amber-100 font-medium">
                 {mode === 'signin' && 'Tiếp tục hành trình chinh phục tri thức cùng bạn Kiến'}
                 {mode === 'signup' && 'Tạo tài khoản nhận ngay quà tặng khởi đầu'}
@@ -510,16 +579,54 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Tên đăng nhập (Username)
-                  </label>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
-                    placeholder="annguyen2026"
-                    className="w-full px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-amber-500 text-xs font-semibold text-stone-900 outline-none"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-stone-700">
+                      Tên đăng nhập (Username)
+                    </label>
+                    <span className="text-[10px] text-stone-400 font-medium">
+                      (Không bắt buộc)
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      placeholder="Ví dụ: kien_vui_123"
+                      className={`w-full px-3 py-2 rounded-xl border-2 text-xs font-semibold text-stone-900 outline-none transition-colors ${
+                        !username.trim()
+                          ? 'border-stone-200 focus:border-amber-500'
+                          : usernameStatus.checking
+                          ? 'border-amber-400 bg-amber-50/20'
+                          : usernameStatus.available
+                          ? 'border-emerald-500 bg-emerald-50/20'
+                          : 'border-rose-500 bg-rose-50/20'
+                      }`}
+                    />
+                    {usernameStatus.checking && (
+                      <RefreshCw className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-amber-500 animate-spin" />
+                    )}
+                    {!usernameStatus.checking && username.trim() && usernameStatus.available && (
+                      <CheckCircle2 className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600" />
+                    )}
+                    {!usernameStatus.checking && username.trim() && usernameStatus.available === false && (
+                      <AlertCircle className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-rose-500" />
+                    )}
+                  </div>
+
+                  {!username.trim() ? null : usernameStatus.checking ? (
+                    <div className="text-[11px] text-amber-600 mt-1 flex items-center gap-1 font-medium">
+                      <span>Đang kiểm tra tên đăng nhập trên hệ thống...</span>
+                    </div>
+                  ) : usernameStatus.available ? (
+                    <div className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1 font-semibold">
+                      <span>✓ {usernameStatus.message}</span>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-semibold">
+                      <span>✕ {usernameStatus.message}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -587,11 +694,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {/* Chọn Lớp Học Phù Hợp: Radio Button Group for 'Lớp 5' or 'Lớp 8' */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center justify-between">
-                  <span>Chọn Lớp Học <span className="text-rose-500">*</span></span>
-                  <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                    Chỉ hiển thị riêng Lớp bạn đã chọn
-                  </span>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  Chọn Lớp Học <span className="text-rose-500">*</span>
                 </label>
 
                 <div
@@ -829,26 +933,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Quick test / immediate verification code badge if provided */}
-              {demoCodeGiven && (
-                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between shadow-xs">
-                  <div className="flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Mã xác nhận nhanh: <strong className="font-mono text-sm tracking-wider text-emerald-700">{demoCodeGiven}</strong></span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      audioService.playClick();
-                      setVerificationCode(demoCodeGiven);
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs active:scale-95 transition-all"
-                  >
-                    Điền nhanh
-                  </button>
-                </div>
-              )}
-
               {/* Form to enter 6-digit code and verify */}
               <form onSubmit={handleVerifyCode} className="space-y-3.5">
                 <div>
@@ -893,22 +977,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   >
                     ← Đổi email hoặc thông tin khác
                   </button>
-                  {onOpenDebug ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        audioService.playClick();
-                        onOpenDebug();
-                      }}
-                      className="text-[11px] text-amber-700 hover:underline flex items-center gap-1 font-bold"
-                    >
-                      🛠️ Chẩn đoán gửi email
-                    </button>
-                  ) : (
-                    <span className="text-[11px] text-stone-400">
-                      Bảo mật với Supabase
-                    </span>
-                  )}
+                  <span className="text-[11px] text-stone-400">
+                    Bảo mật với Supabase
+                  </span>
                 </div>
               </form>
             </div>

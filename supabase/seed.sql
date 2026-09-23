@@ -187,3 +187,22 @@ ON CONFLICT (id) DO UPDATE SET
   full_name = EXCLUDED.full_name,
   total_xp = EXCLUDED.total_xp,
   streak_days = EXCLUDED.streak_days;
+
+-- 8. TÀI KHOẢN QUẢN TRỊ VIÊN & NHÂN SỰ CHUYÊN MÔN (ADMIN_USERS / STAFF_ACCOUNTS)
+INSERT INTO public.admin_users (email, full_name, role, role_title, department, permissions, avatar, status)
+VALUES
+  ('mkt.thecliffresort@gmail.com', 'Nguyễn Minh Hoàng', 'super_admin', 'Super Admin', 'Hội Đồng Quản Trị & Kỹ Thuật Hệ Thống', ARRAY['* (Toàn quyền hệ thống)'], '👑', 'active'),
+  ('mailan.edu@kienhoc.vn', 'ThS. Trần Thị Mai Lan', 'lesson_manager', 'Quản Lý Bài Học', 'Ban Đào Tạo & Khung Bài Giảng', ARRAY['lessons:create', 'lessons:edit', 'lessons:publish'], '📚', 'active'),
+  ('quangvu.khtn@kienhoc.vn', 'TS. Lê Quang Vũ', 'subject_manager', 'Quản Lý Môn Học', 'Khoa KHTN & Toán Học', ARRAY['subjects:manage', 'domains:config'], '🏷️', 'active'),
+  ('bichthuy.lop5@kienhoc.vn', 'Cô Phạm Bích Thủy', 'grade_manager', 'Quản Lý Lớp', 'Tổ Chuyên Môn Tiểu Học', ARRAY['classes:manage', 'students:assign'], '🏫', 'active'),
+  ('quoctuan.media@kienhoc.vn', 'Hoàng Quốc Tuấn', 'content_manager', 'Quản Lý Nội Dung', 'Ban Sáng Tạo & Gamification', ARRAY['quests:manage', 'allies:config', 'stories:edit'], '🎯', 'active'),
+  ('thaovy.studentcare@kienhoc.vn', 'Đặng Thảo Vy', 'student_manager', 'Quản Lý Học Viên', 'Ban Chăm Sóc Học Viên & Phụ Huynh', ARRAY['students:view', 'students:grant_xp', 'students:support'], '🎒', 'active')
+ON CONFLICT (email) DO UPDATE SET
+  full_name = EXCLUDED.full_name,
+  role = EXCLUDED.role,
+  role_title = EXCLUDED.role_title,
+  department = EXCLUDED.department,
+  permissions = EXCLUDED.permissions,
+  avatar = EXCLUDED.avatar,
+  status = EXCLUDED.status;
+

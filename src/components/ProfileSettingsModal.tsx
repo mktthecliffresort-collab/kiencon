@@ -24,9 +24,11 @@ import {
   LogOut,
   LogIn,
   UserPlus,
+  Lock,
 } from 'lucide-react';
 import { audioService } from '../services/audioService';
 import { supabaseService } from '../services/supabaseService';
+import { authService } from '../services/authService';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -68,7 +70,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   onOpenAdmin,
   onOpenDebug,
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'settings' | 'database'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'settings'>('profile');
 
   // Supabase Database State
   const [dbStatus, setDbStatus] = useState<{
@@ -115,6 +117,38 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const [ambientChime, setAmbientChime] = useState<boolean>(initialTheme.ambientChime);
 
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+
+  // Kiểm tra username đã được cấp cố định hay chưa
+  const isUsernameFixed = Boolean(user.username && user.username.trim());
+  const [usernameStatus, setUsernameStatus] = useState<{
+    checking: boolean;
+    available?: boolean;
+    formatValid?: boolean;
+    message?: string;
+  }>({ checking: false });
+
+  // Live availability check nếu chưa có username cố định
+  useEffect(() => {
+    if (isUsernameFixed) return;
+    const trimmed = username.trim();
+    if (!trimmed) {
+      setUsernameStatus({ checking: false });
+      return;
+    }
+
+    setUsernameStatus({ checking: true });
+    const timer = setTimeout(async () => {
+      const res = await authService.checkUsernameAvailability(trimmed, user.id);
+      setUsernameStatus({
+        checking: false,
+        available: res.available,
+        formatValid: res.formatValid,
+        message: res.message,
+      });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [username, isUsernameFixed, user.id]);
 
   // Sync state whenever modal opens or user prop updates
   useEffect(() => {
@@ -208,11 +242,24 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     audioService.setMuted(!soundEnabled);
     audioService.setVolume(soundVolume);
 
+    // Nếu user đã có username cố định, KHÔNG cho phép sửa đổi
+    let finalUsername = user.username;
+    if (!isUsernameFixed) {
+      if (username.trim()) {
+        if (usernameStatus.available === false) {
+          audioService.playClick();
+          alert(usernameStatus.message || 'Tên đăng nhập không khả dụng. Vui lòng chọn tên khác!');
+          return;
+        }
+        finalUsername = username.trim().toLowerCase().replace(/\s+/g, '');
+      }
+    }
+
     const updatedProfile: UserProfile = {
       ...user,
       name: finalName,
       nickname: finalNickname,
-      username: username.trim() || user.username,
+      username: finalUsername || user.username,
       phone: phone.trim() || user.phone,
       schoolName: schoolName.trim() || user.schoolName,
       birthDate,
@@ -300,20 +347,6 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
             >
               <Palette className="w-4 h-4" />
               <span>Cài Đặt Chung</span>
-            </button>
-            <button
-              onClick={() => {
-                audioService.playClick();
-                setActiveTab('database');
-              }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded-xl font-black text-xs sm:text-sm transition-all ${
-                activeTab === 'database'
-                  ? 'bg-white text-amber-950 shadow-md scale-102'
-                  : 'bg-white/20 hover:bg-white/30 text-white'
-              }`}
-            >
-              <Database className="w-4 h-4" />
-              <span>CSDL</span>
             </button>
           </div>
         </div>
@@ -413,16 +446,75 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               {/* Tên đăng nhập & Số điện thoại */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-black text-stone-700 mb-1.5">
-                    Tên Đăng Nhập (Username)
-                  </label>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="ví dụ: kien_con123"
-                    className="w-full px-3.5 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-sm font-bold text-stone-800 bg-stone-50/50"
-                  />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-black text-stone-700">
+                      Tên Đăng Nhập (Username)
+                    </label>
+                    {isUsernameFixed ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-black">
+                        <Lock className="w-3 h-3 text-amber-600" /> Cố định
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-stone-400">
+                        (Cố định sau khi tạo)
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      disabled={isUsernameFixed}
+                      readOnly={isUsernameFixed}
+                      value={username}
+                      onChange={(e) => !isUsernameFixed && setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      placeholder="ví dụ: kien_con123"
+                      className={`w-full px-3.5 py-2.5 rounded-xl border-2 text-sm font-bold outline-none transition-colors ${
+                        isUsernameFixed
+                          ? 'border-stone-200 bg-stone-100 text-stone-500 cursor-not-allowed select-none'
+                          : !username.trim()
+                          ? 'border-stone-200 bg-stone-50/50 text-stone-800 focus:border-amber-500'
+                          : usernameStatus.checking
+                          ? 'border-amber-400 bg-amber-50/30 text-stone-800'
+                          : usernameStatus.available
+                          ? 'border-emerald-500 bg-emerald-50/30 text-stone-800'
+                          : 'border-rose-500 bg-rose-50/30 text-stone-800'
+                      }`}
+                    />
+                    {isUsernameFixed && (
+                      <Lock className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                    )}
+                    {!isUsernameFixed && usernameStatus.checking && (
+                      <RefreshCw className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-amber-500 animate-spin" />
+                    )}
+                    {!isUsernameFixed && !usernameStatus.checking && username.trim() && usernameStatus.available && (
+                      <CheckCircle2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500" />
+                    )}
+                    {!isUsernameFixed && !usernameStatus.checking && username.trim() && usernameStatus.available === false && (
+                      <AlertCircle className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-rose-500" />
+                    )}
+                  </div>
+
+                  {isUsernameFixed ? (
+                    <p className="text-[11px] text-stone-400 mt-1 font-medium">
+                      🔒 Tên đăng nhập đã được cấp cố định và liên kết với tài khoản này, không thể thay đổi.
+                    </p>
+                  ) : !username.trim() ? (
+                    <p className="text-[11px] text-stone-500 mt-1 font-medium">
+                      💡 Nhập tên đăng nhập của bạn (chữ thường, số, dấu _). Sau khi lưu sẽ không thể thay đổi.
+                    </p>
+                  ) : usernameStatus.checking ? (
+                    <p className="text-[11px] text-amber-600 mt-1 font-medium">
+                      Đang kiểm tra tính khả dụng trong hệ thống...
+                    </p>
+                  ) : usernameStatus.available ? (
+                    <p className="text-[11px] text-emerald-600 mt-1 font-bold">
+                      ✓ {usernameStatus.message}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-rose-600 mt-1 font-bold">
+                      ✕ {usernameStatus.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -557,7 +649,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                         className="px-3.5 py-2 rounded-xl btn-ant-3d-amber text-amber-950 text-xs font-black flex items-center gap-1.5 shadow-sm"
                       >
                         <UserPlus className="w-3.5 h-3.5" />
-                        <span>Tạo Tài Khoản (+250 XP)</span>
+                        <span>Đăng ký</span>
                       </button>
 
                       <button
@@ -782,164 +874,17 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               </div>
             </div>
           )}
-
-          {/* TAB 3: SUPABASE DATABASE CONFIGURATION & SYNC */}
-          {activeTab === 'database' && (
-            <div className="space-y-5 animate-fadeIn">
-              {/* Connection Status Card */}
-              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-black text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <Database className="w-3.5 h-3.5 text-emerald-600" />
-                    Trạng Thái Kết Nối Supabase
-                  </span>
-                  <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black ${
-                      dbStatus.connected
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                        : 'bg-amber-100 text-amber-800 border border-amber-300'
-                    }`}
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        dbStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-                      }`}
-                    />
-                    {dbStatus.connected ? 'Đang Kết Nối Supabase' : 'Chế Độ Local Storage'}
-                  </span>
-                </div>
-
-                <p className="text-xs text-stone-600 mb-3">{dbStatus.message}</p>
-
-                {dbStatus.latencyMs !== undefined && (
-                  <div className="text-[11px] font-bold text-emerald-700 mb-3 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Độ trễ phản hồi máy chủ: {dbStatus.latencyMs} ms
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={isTestingDb}
-                    onClick={handleTestDatabase}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-stone-300 hover:bg-stone-100 text-stone-800 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isTestingDb ? 'animate-spin text-amber-600' : ''}`} />
-                    {isTestingDb ? 'Đang Kiểm Tra...' : 'Kiểm Tra Kết Nối'}
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isSyncingDb}
-                    onClick={handleSyncToSupabase}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncingDb ? 'animate-spin' : ''}`} />
-                    {isSyncingDb ? 'Đang Đồng Bộ...' : 'Đồng Bộ Dữ Liệu Ngay'}
-                  </button>
-
-                  {onOpenDebug && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        onOpenDebug();
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
-                    >
-                      <span>🛠️ Chẩn Đoán & Logs Production</span>
-                    </button>
-                  )}
-                </div>
-
-                {syncMessage && (
-                  <div className="mt-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                    <span>{syncMessage}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Database Entities Overview */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-black text-stone-800 uppercase tracking-wider">
-                    Kiến Trúc Supabase 2.0 (Dynamic & Centralized)
-                  </label>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-                    Chuẩn Hóa 3NF + RPC
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
-                    <span className="font-black text-amber-900 block">👤 Người Dùng & Kho Vật Phẩm</span>
-                    <span className="text-[11px] text-stone-500">users, user_inventory</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
-                    <span className="font-black text-amber-900 block">📚 Khóa Học & Chủ Đề</span>
-                    <span className="text-[11px] text-stone-500">courses, topics</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
-                    <span className="font-black text-emerald-800 block">✨ Bài Học Động 1-N Bước</span>
-                    <span className="text-[11px] text-stone-500">lessons, lesson_steps (Không giới hạn)</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
-                    <span className="font-black text-emerald-800 block">🎯 Ngân Hàng Câu Hỏi Tập Trung</span>
-                    <span className="text-[11px] text-stone-500">questions, question_tags (Thi, Đấu trường, Đố)</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
-                    <span className="font-black text-amber-900 block">🏆 BXH Động (RPC Function)</span>
-                    <span className="text-[11px] text-stone-500">get_weekly_leaderboard (Chống row-lock)</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-white border border-stone-200">
-                    <span className="font-black text-amber-900 block">⏱️ Tiến Độ & Phiên Học</span>
-                    <span className="text-[11px] text-stone-500">user_lesson_progress, learning_sessions</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Guide File Script */}
-              <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs text-stone-700 space-y-1.5">
-                <div className="flex items-center gap-2 font-black text-amber-900">
-                  <FileCode className="w-4 h-4 text-amber-600" />
-                  <span>Kịch Bản SQL Hoàn Chỉnh</span>
-                </div>
-                <p className="text-[11px] leading-relaxed text-stone-600">
-                  Tệp <code className="px-1.5 py-0.5 rounded bg-amber-200/70 font-mono text-amber-950 font-bold">supabase/schema.sql</code> và <code className="px-1.5 py-0.5 rounded bg-amber-200/70 font-mono text-amber-950 font-bold">supabase/seed.sql</code> đã được tạo sẵn trong dự án với đầy đủ bảng, quan hệ khóa ngoại, chính sách bảo mật RLS và dữ liệu mẫu. Bạn có thể mở tệp này và chạy trực tiếp tại <strong>SQL Editor</strong> trên trang quản trị Supabase.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Modal Footer with Actions */}
         <div className="p-4 sm:p-5 bg-stone-50 border-t border-stone-200 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-bold text-xs sm:text-sm transition-colors"
-            >
-              Đóng
-            </button>
-            {onOpenAdmin && (
-              <button
-                type="button"
-                onClick={() => {
-                  audioService.playClick();
-                  onClose();
-                  onOpenAdmin();
-                }}
-                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 font-bold text-xs sm:text-sm transition-colors"
-                title="Mở Trang Quản Trị Hệ Thống Admin"
-              >
-                <ShieldCheck className="w-4 h-4 text-purple-600" />
-                <span className="hidden sm:inline">Quản Trị</span>
-                <span>Admin</span>
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-bold text-xs sm:text-sm transition-colors"
+          >
+            Đóng
+          </button>
 
           <button
             type="button"

@@ -23,6 +23,9 @@ import {
 const USER_STORAGE_PREFIX = 'kienhoc_user_v1_';
 const QUEST_STORAGE_KEY = 'kienhoc_quests_v1';
 
+const isUuid = (str?: string | null): boolean =>
+  Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+
 export const supabaseService = {
   // Kiểm tra kết nối Supabase
   async checkStatus() {
@@ -354,10 +357,12 @@ export const supabaseService = {
 
       // Tìm đúng người dùng đã đăng nhập theo authUserId hoặc authEmail
       let query = client.from('users').select('*');
-      if (authUserId) {
+      if (authUserId && isUuid(authUserId)) {
         query = query.or(`id.eq.${authUserId},auth_id.eq.${authUserId}`);
       } else if (authEmail) {
         query = query.eq('email', authEmail.trim().toLowerCase());
+      } else {
+        return localProfile;
       }
 
       const { data, error } = await query.maybeSingle();
@@ -448,10 +453,12 @@ export const supabaseService = {
     try {
       // Tìm xem đã có bản ghi theo profile.id hoặc email
       let query = client.from('users').select('id');
-      if (profile.id && !profile.id.startsWith('user_')) {
+      if (profile.id && isUuid(profile.id)) {
         query = query.or(`id.eq.${profile.id},auth_id.eq.${profile.id}`).limit(1);
       } else if (profile.email) {
         query = query.eq('email', profile.email.toLowerCase().trim()).limit(1);
+      } else if (profile.username) {
+        query = query.eq('username', profile.username.toLowerCase().trim()).limit(1);
       } else {
         return;
       }

@@ -14,16 +14,24 @@ import { AllyShowcaseModal } from './components/AllyShowcaseModal';
 import { MasteryDashboardModal } from './components/MasteryDashboardModal';
 import { LeaderboardModal } from './components/LeaderboardModal';
 import { ProfileSettingsModal } from './components/ProfileSettingsModal';
-import { AdminPortalModal } from './components/Admin/AdminPortalModal';
 import { AuthModal } from './components/AuthModal';
-import { ProductionDebugModal } from './components/ProductionDebugModal';
+import { AdminCPPage } from './components/AdminCP/AdminCPPage';
 import { authService } from './services/authService';
 import { Grade5MathReviewHub } from './components/Grade5MathReview/Grade5MathReviewHub';
 import { DragScrollContainer } from './components/DragScrollContainer';
 import { fireButtonParticleBurst, fireMiniBurst } from './utils/confettiHelper';
-import { Sparkles, Compass, ShieldCheck, Heart, BookOpen, Trophy, Flame, Star, Award, Zap } from 'lucide-react';
+import { INITIAL_USER_GRADE_5, INITIAL_USER_GRADE_8 } from './data/mockData';
+import { Sparkles, Compass, ShieldCheck, Heart, BookOpen, Trophy, Flame, Star, Award, Zap, UserPlus, LogIn } from 'lucide-react';
+
+const checkIsAdminCP = () => {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname.toLowerCase();
+  const hash = window.location.hash.toLowerCase();
+  return path.includes('admincp') || hash.includes('admincp');
+};
 
 export default function App() {
+  const [isAdminCP, setIsAdminCP] = useState<boolean>(checkIsAdminCP);
   const [currentGrade, setCurrentGrade] = useState<GradeLevel>(5);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -45,16 +53,35 @@ export default function App() {
   const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
   const [debugModalOpen, setDebugModalOpen] = useState<boolean>(false);
 
-  // Account Authentication Modal & Toast
-  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  // Account Authentication Modal & Toast - Bắt buộc đăng ký/đăng nhập mới được sử dụng ứng dụng
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(() => !authService.isAuthenticated());
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup' | 'verification_pending' | 'signout_confirm'>('signup');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isAuthenticated());
-  const [authNotificationToast, setAuthNotificationToast] = useState<string | null>(null);
+  const [authNotificationToast, setAuthNotificationToast] = useState<string | null>(() =>
+    authService.isAuthenticated() ? null : 'Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập.'
+  );
+
+  // Sync /admincp route
+  useEffect(() => {
+    const handleUrlChange = () => {
+      setIsAdminCP(checkIsAdminCP());
+    };
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
 
   // Listen to session changes
   useEffect(() => {
     const unsubscribe = authService.subscribe((session) => {
-      setIsAuthenticated(!!session);
+      const authed = !!session;
+      setIsAuthenticated(authed);
+      if (!authed) {
+        setAuthModalOpen(true);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -86,6 +113,12 @@ export default function App() {
             // Làm sạch URL
             window.history.replaceState({}, document.title, window.location.pathname);
             return;
+          } else if (verifyResult.alreadyVerified && verifyResult.user && isMounted) {
+            setUser(verifyResult.user);
+            setIsAuthenticated(true);
+            setAuthNotificationToast('ℹ️ Tài khoản của bạn đã được xác minh trước đó rồi! Chào mừng bạn quay lại.');
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
           } else if (isMounted) {
             // Mở modal xác thực trực tiếp để học sinh kiểm tra và bấm xác nhận
             setAuthModalMode('verification_pending');
@@ -102,12 +135,18 @@ export default function App() {
         if (syncedUser && isMounted) {
           setUser(syncedUser);
           setIsAuthenticated(true);
+          setAuthNotificationToast(null);
           if (syncedUser.grade) {
             setCurrentGrade(syncedUser.grade);
           }
+        } else if (isMounted && !authService.isAuthenticated()) {
+          setAuthNotificationToast('Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập.');
         }
       } catch (err) {
         console.warn('Lỗi kiểm tra user từ Supabase khi reload:', err);
+        if (isMounted && !authService.isAuthenticated()) {
+          setAuthNotificationToast('Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập.');
+        }
       }
     }
 
@@ -117,6 +156,38 @@ export default function App() {
       isMounted = false;
     };
   }, []);
+
+  // Lắng nghe thay đổi trạng thái phiên đăng nhập (đồng bộ thời gian thực đa tab / Cross-tab Sync)
+  useEffect(() => {
+    const unsubscribe = authService.subscribe((session) => {
+      if (!session) {
+        // Tab khác hoặc tab này vừa đăng xuất: lập tức đăng xuất đồng thời
+        setIsAuthenticated(false);
+        setAuthModalMode('signup');
+        setAuthModalOpen(true);
+        setProfileModalOpen(false);
+        setAdminModalOpen(false);
+        setActiveLesson(null);
+        setLeaderboardModalOpen(false);
+        setMasteryModalOpen(false);
+        setAlliesModalOpen(false);
+        setQuestsModalOpen(false);
+        setAuthNotificationToast('Tài khoản đã đăng xuất. Vui lòng đăng ký / đăng nhập để tiếp tục.');
+        const defaultUser = currentGrade === 8 ? { ...INITIAL_USER_GRADE_8 } : { ...INITIAL_USER_GRADE_5 };
+        setUser(defaultUser);
+      } else {
+        // Đồng bộ trạng thái đăng nhập từ tab khác
+        setIsAuthenticated(true);
+        if (session.grade && session.grade !== currentGrade) {
+          setCurrentGrade(session.grade);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentGrade]);
 
   const handleOpenAuth = (mode: 'signin' | 'signup' | 'signout_confirm' = 'signup') => {
     setAuthModalMode(mode);
@@ -142,6 +213,9 @@ export default function App() {
   const handleSignOutSuccess = (defaultUser: UserProfile) => {
     setUser(defaultUser);
     setIsAuthenticated(false);
+    setProfileModalOpen(false);
+    setAdminModalOpen(false);
+    setAuthNotificationToast('Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập.');
   };
 
   // Streak & Mastery celebration triggers
@@ -234,6 +308,12 @@ export default function App() {
   };
 
   const handleStartLesson = (lesson: Lesson) => {
+    if (!isAuthenticated) {
+      audioService.playClick();
+      setAuthNotificationToast('Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập.');
+      handleOpenAuth('signup');
+      return;
+    }
     setActiveLesson(lesson);
   };
 
@@ -325,6 +405,24 @@ export default function App() {
     );
   }
 
+  if (isAdminCP) {
+    return (
+      <AdminCPPage
+        onBackToApp={() => {
+          window.history.pushState({}, '', '/');
+          setIsAdminCP(false);
+        }}
+        lessons={lessons}
+        subjects={subjects}
+        quests={quests}
+        currentUser={user}
+        onUpdateLessons={(updated) => setLessons(updated)}
+        onUpdateSubjects={(updated) => setSubjects(updated)}
+        onUpdateQuests={(updated) => setQuests(updated)}
+      />
+    );
+  }
+
   const themeMode = user.themeSettings?.mode || 'light';
   const themeBgClass =
     themeMode === 'soft'
@@ -356,9 +454,23 @@ export default function App() {
         onOpenAllies={() => setAlliesModalOpen(true)}
         onOpenMastery={() => setMasteryModalOpen(true)}
         onOpenLeaderboard={() => setLeaderboardModalOpen(true)}
-        onOpenProfile={() => setProfileModalOpen(true)}
+        onOpenProfile={() => {
+          if (!isAuthenticated) {
+            setAuthNotificationToast('Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập.');
+            handleOpenAuth('signup');
+            return;
+          }
+          setProfileModalOpen(true);
+        }}
         onOpenAuth={handleOpenAuth}
-        onOpenAdmin={() => setAdminModalOpen(true)}
+        onOpenAdmin={() => {
+          if (!isAuthenticated) {
+            setAuthNotificationToast('Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập.');
+            handleOpenAuth('signup');
+            return;
+          }
+          setAdminModalOpen(true);
+        }}
         isAuthenticated={isAuthenticated}
         unclaimedQuestsCount={unclaimedQuestsCount}
         isStreakTriggered={isStreakTriggered}
@@ -366,6 +478,50 @@ export default function App() {
 
       {/* Main Learning Hub */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        {/* Thông báo nhắc nhở tạo tài khoản dành cho người dùng chưa là thành viên */}
+        {!isAuthenticated && (
+          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-4 sm:p-5 border-4 border-amber-300 shadow-xl text-white flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in relative overflow-hidden">
+            <div className="flex items-center gap-3.5 text-center md:text-left">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl shrink-0 shadow-inner border border-white/30">
+                🐜
+              </div>
+              <div className="space-y-0.5">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-950/40 text-amber-200 text-[11px] font-black uppercase tracking-wider">
+                  <span>Thông Báo Thành Viên</span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-yellow-100">
+                  Chào mừng bạn đến với Vương Quốc Kiến Học!
+                </h3>
+                <p className="text-xs sm:text-sm text-white/95 font-bold leading-relaxed">
+                  Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập và lưu trữ toàn bộ tiến độ bài học.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-end">
+              <button
+                onClick={() => {
+                  audioService.playBoingPop();
+                  handleOpenAuth('signup');
+                }}
+                className="flex-1 md:flex-initial px-5 py-2.5 rounded-2xl bg-white text-amber-950 font-black text-xs sm:text-sm shadow-md hover:bg-amber-50 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <UserPlus className="w-4 h-4 text-amber-700" />
+                <span>Đăng ký</span>
+              </button>
+              <button
+                onClick={() => {
+                  audioService.playBoingPop();
+                  handleOpenAuth('signin');
+                }}
+                className="px-4 py-2.5 rounded-2xl bg-black/25 hover:bg-black/35 text-white font-black text-xs sm:text-sm border border-white/30 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Đăng nhập</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Ant Universe Greeting & Adaptive Tone Banner */}
         <div className="bg-gradient-to-r from-amber-400 via-orange-300 to-amber-200 rounded-3xl p-5 sm:p-7 border-4 border-amber-300 shadow-lg relative overflow-hidden text-stone-900">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5 lg:gap-6 relative z-10">
@@ -767,10 +923,23 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-stone-200 bg-white/80 py-6 mt-12 text-center text-xs text-stone-500">
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-center">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 font-black text-stone-700">
             <span>🐜 VƯƠNG QUỐC KIẾN HỌC</span>
           </div>
+          <a
+            href="/admincp"
+            onClick={(e) => {
+              e.preventDefault();
+              window.history.pushState({}, '', '/admincp');
+              setIsAdminCP(true);
+            }}
+            className="text-stone-400 hover:text-amber-700 font-mono text-[11px] transition-colors flex items-center gap-1.5"
+            title="Đến trang quản trị hệ thống"
+          >
+            <span>🔐</span>
+            <span>Cổng Quản Trị Hệ Thống (/admincp)</span>
+          </a>
         </div>
       </footer>
 
@@ -822,71 +991,40 @@ export default function App() {
         onSelectGrade={handleSwitchGrade}
       />
 
-      {/* User Profile & Themes/Sound Settings Modal */}
-      <ProfileSettingsModal
-        isOpen={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
-        user={user}
-        onSaveProfile={handleSaveProfile}
-        onOpenAuth={handleOpenAuth}
-        onOpenAdmin={() => setAdminModalOpen(true)}
-        onOpenDebug={() => setDebugModalOpen(true)}
-        isAuthenticated={isAuthenticated}
-      />
-
-      {/* Admin Management Portal Modal */}
-      {user && (
-        <AdminPortalModal
-          isOpen={adminModalOpen}
-          onClose={() => setAdminModalOpen(false)}
-          currentUser={user}
-          lessons={lessons}
-          subjects={subjects}
-          quests={quests}
-          onUpdateLessons={(updated) => setLessons(updated)}
-          onUpdateSubjects={(updated) => setSubjects(updated)}
-          onUpdateQuests={(updated) => setQuests(updated)}
+      {/* User Profile & Themes/Sound Settings Modal (Chỉ mở khi đã đăng nhập/đăng ký) */}
+      {isAuthenticated && (
+        <ProfileSettingsModal
+          isOpen={profileModalOpen}
+          onClose={() => setProfileModalOpen(false)}
+          user={user}
+          onSaveProfile={handleSaveProfile}
+          onOpenAuth={handleOpenAuth}
+          isAuthenticated={isAuthenticated}
         />
       )}
 
-      {/* Account Authentication & Email Verification Modal */}
+      {/* Account Authentication & Email Verification Modal (Bắt buộc đăng nhập/đăng ký để sử dụng) */}
       <AuthModal
         isOpen={authModalOpen}
         initialMode={authModalMode}
-        onClose={() => setAuthModalOpen(false)}
+        onClose={() => {
+          if (isAuthenticated) {
+            setAuthModalOpen(false);
+          }
+        }}
         onAuthSuccess={handleAuthSuccess}
         onSignOutSuccess={handleSignOutSuccess}
         currentUser={user}
         currentGrade={currentGrade}
         onSwitchGrade={handleSwitchGrade}
-        onOpenDebug={() => setDebugModalOpen(true)}
+        isMandatory={!isAuthenticated}
       />
-
-      {/* Production Diagnostics, SMTP Health & Live System Logs Modal */}
-      <ProductionDebugModal
-        isOpen={debugModalOpen}
-        onClose={() => setDebugModalOpen(false)}
-      />
-
-      {/* Floating Production Diagnostics Button (Direct click on Vercel) */}
-      <button
-        id="floating-production-debug-btn"
-        onClick={() => {
-          audioService.playBoingPop();
-          setDebugModalOpen(true);
-        }}
-        className="fixed bottom-3 right-3 z-40 bg-stone-900/90 hover:bg-stone-900 text-amber-300 hover:text-amber-200 px-3 py-1.5 rounded-full shadow-xl border-2 border-amber-400/80 text-xs font-black flex items-center gap-1.5 backdrop-blur-md hover:scale-105 active:scale-95 transition-all group"
-        title="Trung tâm chẩn đoán lỗi Production Vercel / SMTP / Supabase"
-      >
-        <span className="text-sm group-hover:rotate-12 transition-transform">🛠️</span>
-        <span className="hidden sm:inline">Chẩn Đoán Production</span>
-      </button>
 
       {/* Welcome & XP Bonus Notification Toast */}
       <AnimatePresence>
         {authNotificationToast && (
           <motion.aside
-            aria-label="Thông báo chào mừng"
+            aria-label="Thông báo thành viên"
             initial={{ opacity: 0, y: -40, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -30, scale: 0.95 }}
@@ -894,16 +1032,28 @@ export default function App() {
             className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] max-w-lg w-[90%] sm:w-auto shadow-2xl rounded-2xl bg-stone-900/95 text-white p-3.5 sm:px-5 sm:py-4 border-2 border-amber-400 flex items-center gap-3.5 backdrop-blur-md"
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center text-xl shrink-0 shadow-md">
-              🍯
+              {!isAuthenticated ? '🐜' : '🍯'}
             </div>
             <div className="flex-1 pr-1">
               <div className="text-[10px] font-black uppercase tracking-wider text-amber-300">
-                Thành Công
+                {!isAuthenticated ? 'Thông Báo Thành Viên' : 'Thành Công'}
               </div>
               <div className="text-xs sm:text-sm font-black text-amber-50 leading-snug">
                 {authNotificationToast}
               </div>
             </div>
+            {!isAuthenticated && (
+              <button
+                onClick={() => {
+                  audioService.playBoingPop();
+                  handleOpenAuth('signup');
+                  setAuthNotificationToast(null);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 text-xs font-black shrink-0 transition-transform active:scale-95 shadow-xs"
+              >
+                Đăng ký ngay
+              </button>
+            )}
             <button
               onClick={() => setAuthNotificationToast(null)}
               className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white text-xs font-bold transition-all shrink-0"
