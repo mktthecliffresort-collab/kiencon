@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserProfile, GradeLevel } from '../types';
-import { Flame, Award, Sparkles, Volume2, VolumeX, CheckCircle2, Trophy, Calendar, Zap, X, Settings, Database, BookOpen, Heart, LogOut, LogIn, UserPlus, ShieldCheck } from 'lucide-react';
+import { UserProfile, GradeLevel, getEducationalStage, getStageName, ALL_GRADES, DEMO_FEATURED_GRADES } from '../types';
+import { Flame, Award, Sparkles, Volume2, VolumeX, CheckCircle2, Trophy, Calendar, Zap, X, Settings, Database, BookOpen, Heart, LogOut, LogIn, UserPlus, ShieldCheck, ChevronDown, Star } from 'lucide-react';
 import { audioService } from '../services/audioService';
 import { supabaseService } from '../services/supabaseService';
 
@@ -37,8 +37,10 @@ export const Header: React.FC<HeaderProps> = ({
   const [isFireActive, setIsFireActive] = useState<boolean>(false);
   const [showStreakPopover, setShowStreakPopover] = useState<boolean>(false);
   const [showLeavesPopover, setShowLeavesPopover] = useState<boolean>(false);
+  const [showGradePopover, setShowGradePopover] = useState<boolean>(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const leavesPopoverRef = useRef<HTMLDivElement>(null);
+  const gradePopoverRef = useRef<HTMLDivElement>(null);
 
   // Trigger fire animation when isStreakTriggered flips or changes
   useEffect(() => {
@@ -47,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
     }
   }, [isStreakTriggered]);
 
-  // Click outside to close streak & leaves popover
+  // Click outside to close streak, leaves, & grade popovers
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
@@ -56,14 +58,17 @@ export const Header: React.FC<HeaderProps> = ({
       if (leavesPopoverRef.current && !leavesPopoverRef.current.contains(event.target as Node)) {
         setShowLeavesPopover(false);
       }
+      if (gradePopoverRef.current && !gradePopoverRef.current.contains(event.target as Node)) {
+        setShowGradePopover(false);
+      }
     }
-    if (showStreakPopover || showLeavesPopover) {
+    if (showStreakPopover || showLeavesPopover || showGradePopover) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showStreakPopover, showLeavesPopover]);
+  }, [showStreakPopover, showLeavesPopover, showGradePopover]);
 
   const triggerFireAnimation = () => {
     setIsFireActive(true);
@@ -133,61 +138,161 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Center: Grade Display (Khi đăng nhập: Chỉ hiển thị Lớp đã chọn, ẩn các lớp khác. Khi là khách: Cho phép xem thử) */}
-          {isAuthenticated ? (
-            <div
-              id="desktop-locked-grade-badge"
-              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-100 to-orange-100 px-2.5 py-1 lg:px-3.5 lg:py-1.5 rounded-2xl border-2 border-amber-300 shadow-xs shrink-0"
-              title={`Bạn đang học ${user.grade === 5 ? 'Khối Lớp 5' : 'Khối Lớp 8'}. Hệ thống chỉ hiển thị nội dung lớp học của bạn.`}
+          {/* Center: Grade Display & Switcher (Toàn diện Khối Lớp 1 - 12 chuẩn GDPT 2018) */}
+          <div className="relative shrink-0" ref={gradePopoverRef}>
+            <button
+              id="desktop-switch-grade-btn"
+              onClick={() => {
+                audioService.playBoingPop();
+                setShowGradePopover((prev) => !prev);
+              }}
+              className={`flex items-center gap-1.5 px-2.5 lg:px-3.5 py-1 lg:py-1.5 rounded-2xl border-2 font-black text-xs lg:text-sm transition-all select-none active:scale-95 shadow-2xs ${
+                showGradePopover
+                  ? 'bg-amber-400 text-amber-950 border-amber-500 shadow-sm ring-2 ring-amber-300'
+                  : 'bg-amber-50 hover:bg-amber-100/80 border-amber-300 text-amber-950'
+              }`}
+              title="Nhấn để chuyển đổi khối lớp học (Lớp 1 - 12 chuẩn GDPT 2018)"
             >
-              <span className="text-base lg:text-lg">{user.grade === 5 ? '📐' : '🔬'}</span>
-              <div className="flex items-center gap-1">
-                <span className="hidden xl:inline text-[9px] font-black uppercase tracking-wider text-amber-800 bg-amber-200/80 px-1 py-0.5 rounded-md">
-                  LỚP ĐÃ CHỌN
+              <BookOpen className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-amber-900 shrink-0" />
+              <span className="font-black">Lớp {user.grade}</span>
+              <span className="hidden xl:inline text-xs text-amber-800 font-semibold">
+                ({user.grade <= 5 ? 'Tiểu Học' : user.grade <= 9 ? 'THCS' : 'THPT'})
+              </span>
+              {([5, 8] as GradeLevel[]).includes(user.grade) && (
+                <span className="hidden sm:inline-flex items-center gap-0.5 text-[9px] bg-amber-300 text-amber-950 px-1.5 py-0.5 rounded-md font-black uppercase">
+                  <Star className="w-2.5 h-2.5 fill-amber-700 text-amber-700" /> Demo
                 </span>
-                <span className="text-xs lg:text-sm font-black text-amber-950">
-                  Lớp {user.grade}
-                </span>
-                <span className="hidden xl:inline text-xs text-amber-800 font-semibold">
-                  ({user.grade === 5 ? 'Tiểu Học' : 'THCS'})
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center bg-amber-50 p-1 rounded-2xl border-2 border-amber-200 shadow-inner gap-1 shrink-0">
-              <button
-                id="desktop-switch-grade-5"
-                onClick={() => {
-                  audioService.playBoingPop();
-                  onSwitchGrade(5);
-                }}
-                className={`flex items-center gap-1 px-2 lg:px-3.5 py-1 lg:py-1.5 rounded-xl text-xs lg:text-sm font-black transition-all ${
-                  user.grade === 5
-                    ? 'bg-gradient-to-b from-amber-300 to-amber-400 text-amber-950 border-b-2 border-amber-600 shadow-xs scale-105'
-                    : 'text-stone-500 hover:text-stone-800 hover:bg-white/60'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5 text-amber-900" />
-                <span>Lớp 5</span>
-              </button>
+              )}
+              <ChevronDown className={`w-3.5 h-3.5 text-amber-800 transition-transform duration-200 ${showGradePopover ? 'rotate-180' : ''}`} />
+            </button>
 
-              <button
-                id="desktop-switch-grade-8"
-                onClick={() => {
-                  audioService.playBoingPop();
-                  onSwitchGrade(8);
-                }}
-                className={`flex items-center gap-1 px-2 lg:px-3.5 py-1 lg:py-1.5 rounded-xl text-xs lg:text-sm font-black transition-all ${
-                  user.grade === 8
-                    ? 'bg-gradient-to-b from-sky-300 to-sky-400 text-sky-950 border-b-2 border-sky-600 shadow-xs scale-105'
-                    : 'text-stone-500 hover:text-stone-800 hover:bg-white/60'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5 text-sky-900" />
-                <span>Lớp 8</span>
-              </button>
-            </div>
-          )}
+            {/* Desktop Grade Dropdown Card */}
+            {showGradePopover && (
+              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-88 bg-white rounded-3xl p-4 border-3 border-amber-200 shadow-2xl z-50 animate-fadeIn space-y-3 text-left">
+                <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-base">
+                      🎒
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-stone-900 leading-tight">
+                        Chọn Khối Lớp Học (GDPT 2018)
+                      </h4>
+                      <p className="text-[10px] text-stone-500 font-medium">Hỗ trợ đầy đủ Lớp 1 - 12</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowGradePopover(false)}
+                    className="text-stone-400 hover:text-stone-600 p-1 rounded-lg hover:bg-stone-100"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Tiểu học */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] font-black text-amber-900 px-1">
+                    <span>🎒 TIỂU HỌC (LỚP 1 - 5)</span>
+                    <span className="text-[9px] text-amber-700 font-bold">Lớp 5: Demo Chuyên Sâu ★</span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1">
+                    {([1, 2, 3, 4, 5] as GradeLevel[]).map((g) => {
+                      const isSelected = user.grade === g;
+                      const isDemo = g === 5;
+                      return (
+                        <button
+                          key={g}
+                          onClick={() => {
+                            audioService.playBoingPop();
+                            onSwitchGrade(g);
+                            setShowGradePopover(false);
+                          }}
+                          className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center ${
+                            isSelected
+                              ? 'bg-amber-400 text-amber-950 border-2 border-amber-500 shadow-xs ring-2 ring-amber-300/40'
+                              : 'bg-stone-50 hover:bg-amber-50 border border-stone-200 text-stone-700'
+                          }`}
+                        >
+                          <span>Lớp {g}</span>
+                          {isDemo && (
+                            <span className="text-[8px] text-amber-900 font-black uppercase">Demo ★</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* THCS */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] font-black text-sky-900 px-1">
+                    <span>📚 THCS (LỚP 6 - 9)</span>
+                    <span className="text-[9px] text-sky-700 font-bold">Lớp 8: Demo Chuyên Sâu ★</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {([6, 7, 8, 9] as GradeLevel[]).map((g) => {
+                      const isSelected = user.grade === g;
+                      const isDemo = g === 8;
+                      return (
+                        <button
+                          key={g}
+                          onClick={() => {
+                            audioService.playBoingPop();
+                            onSwitchGrade(g);
+                            setShowGradePopover(false);
+                          }}
+                          className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center ${
+                            isSelected
+                              ? 'bg-sky-400 text-sky-950 border-2 border-sky-500 shadow-xs ring-2 ring-sky-300/40'
+                              : 'bg-stone-50 hover:bg-sky-50 border border-stone-200 text-stone-700'
+                          }`}
+                        >
+                          <span>Lớp {g}</span>
+                          {isDemo && (
+                            <span className="text-[8px] text-sky-900 font-black uppercase">Demo ★</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* THPT */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] font-black text-purple-900 px-1">
+                    <span>🎓 THPT (LỚP 10 - 12)</span>
+                    <span className="text-[9px] text-purple-700 font-medium">Toàn diện GDPT</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {([10, 11, 12] as GradeLevel[]).map((g) => {
+                      const isSelected = user.grade === g;
+                      return (
+                        <button
+                          key={g}
+                          onClick={() => {
+                            audioService.playBoingPop();
+                            onSwitchGrade(g);
+                            setShowGradePopover(false);
+                          }}
+                          className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center ${
+                            isSelected
+                              ? 'bg-purple-400 text-purple-950 border-2 border-purple-500 shadow-xs ring-2 ring-purple-300/40'
+                              : 'bg-stone-50 hover:bg-purple-50 border border-stone-200 text-stone-700'
+                          }`}
+                        >
+                          <span>Lớp {g}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-stone-100 text-[10px] text-stone-500 leading-tight">
+                  ✨ Lớp 5 & Lớp 8 là dữ liệu trải nghiệm demo chuyên sâu; bạn có thể chọn bất kỳ khối lớp nào để khám phá chương trình!
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Right Gamification Stats: Streak, Leaderboard, XP, Quests, Audio, Profile, Auth */}
           <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 shrink-0">
@@ -606,54 +711,158 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Row 2: Unified Segmented Grade Switcher & Achievements */}
           <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-amber-100">
-            {/* Left: Grade Switcher (Khách) hoặc Locked Badge (Đã đăng nhập) */}
-            {isAuthenticated ? (
-              <div
-                id="mobile-locked-grade-badge"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 text-amber-950 font-black text-xs shrink-0 shadow-2xs"
-                title={`Bạn đang học ${user.grade === 5 ? 'Lớp 5' : 'Lớp 8'}`}
+            {/* Left: Mobile Grade Switcher Button */}
+            <div className="relative">
+              <button
+                id="mobile-switch-grade-btn"
+                onClick={() => {
+                  audioService.playBoingPop();
+                  setShowGradePopover((prev) => !prev);
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-black text-xs shrink-0 shadow-2xs active:scale-95 transition-all ${
+                  showGradePopover
+                    ? 'bg-amber-400 text-amber-950 border-amber-600 ring-2 ring-amber-300'
+                    : 'bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-950'
+                }`}
+                title="Đổi khối lớp học (Lớp 1 - 12)"
               >
-                <span>{user.grade === 5 ? '📐' : '🔬'}</span>
-                <span>{user.grade === 5 ? 'Lớp 5' : 'Lớp 8'}</span>
-                <span className="text-[9px] text-amber-800 bg-amber-200/80 px-1 py-0.5 rounded font-black uppercase">
-                  Đã chọn
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center bg-stone-100/90 p-0.5 rounded-xl border border-stone-200 gap-0.5 shrink-0">
-                <button
-                  id="mobile-switch-grade-5"
-                  onClick={() => {
-                    audioService.playBoingPop();
-                    onSwitchGrade(5);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
-                    user.grade === 5
-                      ? 'bg-amber-400 text-amber-950 shadow-xs border border-amber-500/40'
-                      : 'text-stone-500 hover:text-stone-800'
-                  }`}
-                >
-                  <span>👦</span>
-                  <span>Lớp 5</span>
-                </button>
+                <span>{user.grade <= 5 ? '🎒' : user.grade <= 9 ? '📚' : '🎓'}</span>
+                <span>Lớp {user.grade}</span>
+                {([5, 8] as GradeLevel[]).includes(user.grade) && (
+                  <span className="text-[9px] bg-amber-300 text-amber-950 px-1 py-0.2 rounded font-black uppercase">
+                    Demo ★
+                  </span>
+                )}
+                <ChevronDown className={`w-3 h-3 text-amber-800 transition-transform ${showGradePopover ? 'rotate-180' : ''}`} />
+              </button>
 
-                <button
-                  id="mobile-switch-grade-8"
-                  onClick={() => {
-                    audioService.playBoingPop();
-                    onSwitchGrade(8);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
-                    user.grade === 8
-                      ? 'bg-sky-400 text-sky-950 shadow-xs border border-sky-500/40'
-                      : 'text-stone-500 hover:text-stone-800'
-                  }`}
-                >
-                  <span>🧑‍🎓</span>
-                  <span>Lớp 8</span>
-                </button>
-              </div>
-            )}
+              {/* Mobile Grade Dropdown Card */}
+              {showGradePopover && (
+                <div className="fixed inset-x-2 top-24 bg-white rounded-3xl p-4 border-3 border-amber-200 shadow-2xl z-50 animate-fadeIn space-y-3 text-left">
+                  <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-base">
+                        🎒
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-stone-900 leading-tight">
+                          Chọn Khối Lớp Học (GDPT 2018)
+                        </h4>
+                        <p className="text-[10px] text-stone-500 font-medium">Hỗ trợ đầy đủ Lớp 1 - 12</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowGradePopover(false)}
+                      className="text-stone-400 hover:text-stone-600 p-1 rounded-lg hover:bg-stone-100"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Tiểu học */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-black text-amber-900 px-1">
+                      <span>🎒 TIỂU HỌC (LỚP 1 - 5)</span>
+                      <span className="text-[9px] text-amber-700 font-bold">Lớp 5: Demo Chuyên Sâu ★</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1">
+                      {([1, 2, 3, 4, 5] as GradeLevel[]).map((g) => {
+                        const isSelected = user.grade === g;
+                        const isDemo = g === 5;
+                        return (
+                          <button
+                            key={g}
+                            onClick={() => {
+                              audioService.playBoingPop();
+                              onSwitchGrade(g);
+                              setShowGradePopover(false);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center ${
+                              isSelected
+                                ? 'bg-amber-400 text-amber-950 border-2 border-amber-500 shadow-xs ring-2 ring-amber-300/40'
+                                : 'bg-stone-50 hover:bg-amber-50 border border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span>Lớp {g}</span>
+                            {isDemo && (
+                              <span className="text-[8px] text-amber-900 font-black uppercase">Demo ★</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* THCS */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-black text-sky-900 px-1">
+                      <span>📚 THCS (LỚP 6 - 9)</span>
+                      <span className="text-[9px] text-sky-700 font-bold">Lớp 8: Demo Chuyên Sâu ★</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      {([6, 7, 8, 9] as GradeLevel[]).map((g) => {
+                        const isSelected = user.grade === g;
+                        const isDemo = g === 8;
+                        return (
+                          <button
+                            key={g}
+                            onClick={() => {
+                              audioService.playBoingPop();
+                              onSwitchGrade(g);
+                              setShowGradePopover(false);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center ${
+                              isSelected
+                                ? 'bg-sky-400 text-sky-950 border-2 border-sky-500 shadow-xs ring-2 ring-sky-300/40'
+                                : 'bg-stone-50 hover:bg-sky-50 border border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span>Lớp {g}</span>
+                            {isDemo && (
+                              <span className="text-[8px] text-sky-900 font-black uppercase">Demo ★</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* THPT */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-black text-purple-900 px-1">
+                      <span>🎓 THPT (LỚP 10 - 12)</span>
+                      <span className="text-[9px] text-purple-700 font-medium">Toàn diện GDPT</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1">
+                      {([10, 11, 12] as GradeLevel[]).map((g) => {
+                        const isSelected = user.grade === g;
+                        return (
+                          <button
+                            key={g}
+                            onClick={() => {
+                              audioService.playBoingPop();
+                              onSwitchGrade(g);
+                              setShowGradePopover(false);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center ${
+                              isSelected
+                                ? 'bg-purple-400 text-purple-950 border-2 border-purple-500 shadow-xs ring-2 ring-purple-300/40'
+                                : 'bg-stone-50 hover:bg-purple-50 border border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span>Lớp {g}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-stone-100 text-[10px] text-stone-500 leading-tight">
+                    ✨ Lớp 5 & Lớp 8 là dữ liệu demo chuyên sâu; bạn có thể chọn bất kỳ khối lớp nào để học tập!
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Right: Leaderboard & Level */}
             <div className="flex items-center gap-1 shrink-0">

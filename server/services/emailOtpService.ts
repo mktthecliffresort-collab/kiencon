@@ -2,11 +2,13 @@ import nodemailer from 'nodemailer';
 
 interface OtpItem {
   code: string;
+  purpose: 'signup' | 'forgot_password';
   expiresAt: number;
 }
 
 interface OtpRecord {
   code: string;
+  purpose: 'signup' | 'forgot_password';
   codes: OtpItem[];
   email: string;
   fullName: string;
@@ -42,9 +44,10 @@ function createTransporter() {
 
 export async function sendOtpEmail(params: {
   email: string;
-  fullName: string;
+  fullName?: string;
   code: string;
   grade?: number;
+  purpose?: 'signup' | 'forgot_password';
   appUrl?: string;
 }): Promise<{
   success: boolean;
@@ -54,7 +57,7 @@ export async function sendOtpEmail(params: {
   senderUsed: string;
   verificationUrl?: string;
 }> {
-  const { email, fullName, code, grade, appUrl } = params;
+  const { email, fullName = 'Học sinh Kiến', code, grade, purpose = 'signup', appUrl } = params;
   const normalizedEmail = email.trim().toLowerCase();
   const now = Date.now();
 
@@ -63,11 +66,13 @@ export async function sendOtpEmail(params: {
     .filter((item) => item.expiresAt > now);
   activeCodes.push({
     code,
+    purpose,
     expiresAt: now + 15 * 60 * 1000,
   });
 
   otpStore.set(normalizedEmail, {
     code,
+    purpose,
     codes: activeCodes,
     email: normalizedEmail,
     fullName,
@@ -77,7 +82,9 @@ export async function sendOtpEmail(params: {
   });
 
   const baseUrl = (appUrl || process.env.APP_URL || 'https://kiencon.vercel.app').replace(/\/$/, '');
-  const verificationUrl = `${baseUrl}?verify_email=${encodeURIComponent(normalizedEmail)}&code=${encodeURIComponent(code)}`;
+  const verificationUrl = purpose === 'forgot_password'
+    ? `${baseUrl}?reset_email=${encodeURIComponent(normalizedEmail)}&code=${encodeURIComponent(code)}`
+    : `${baseUrl}?verify_email=${encodeURIComponent(normalizedEmail)}&code=${encodeURIComponent(code)}`;
 
   const senderEmail = (process.env.GMAIL_USER || 'mkt.thecliffresort@gmail.com').trim();
   let emailSent = false;
@@ -85,7 +92,45 @@ export async function sendOtpEmail(params: {
   const transporter = createTransporter();
   const gradeLabel = grade === 8 ? 'Lớp 8 (KHTN)' : 'Lớp 5 (Toán)';
 
-  const emailHtml = `
+  const isReset = purpose === 'forgot_password';
+
+  const emailHtml = isReset
+    ? `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #FEF3C7; border-radius: 16px; border: 3px solid #F59E0B;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <span style="font-size: 48px;">🔑</span>
+        <h1 style="color: #78350F; margin: 8px 0; font-size: 26px;">VƯƠNG QUỐC KIẾN HỌC</h1>
+        <p style="color: #92400E; font-size: 15px; margin: 0;">Yêu cầu đặt lại mật khẩu tài khoản</p>
+      </div>
+      
+      <div style="background-color: #ffffff; padding: 24px; border-radius: 12px; border: 1px solid #FDE68A;">
+        <p style="font-size: 16px; color: #1F2937; margin-top: 0;">
+          Xin chào <strong>${fullName}</strong>! 👋
+        </p>
+        <p style="font-size: 14px; color: #4B5563; line-height: 1.6;">
+          Hệ thống nhận được yêu cầu lấy lại mật khẩu cho tài khoản <strong>${normalizedEmail}</strong>. Để bảo vệ an toàn cho tài khoản của bạn, vui lòng sử dụng mã OTP dưới đây để xác nhận:
+        </p>
+
+        <div style="text-align: center; margin: 24px 0; padding: 20px; background-color: #FFFBEB; border-radius: 12px; border: 2px dashed #F59E0B;">
+          <div style="font-size: 13px; font-weight: bold; color: #B45309; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">
+            MÃ XÁC THỰC OTP ĐẶT LẠI MẬT KHẨU (HIỆU LỰC 15 PHÚT)
+          </div>
+          <div style="font-size: 38px; font-weight: 800; letter-spacing: 8px; color: #D97706; font-family: monospace;">
+            ${code}
+          </div>
+        </div>
+
+        <div style="margin-top: 24px; padding: 12px 16px; background-color: #FEF2F2; border-radius: 8px; border: 1px solid #FECACA; font-size: 13px; color: #991B1B;">
+          ⚠️ <strong>Lưu ý bảo mật:</strong> Tuyệt đối không chia sẻ mã này cho bất kỳ ai. Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này. Mật khẩu hiện tại của bạn vẫn được giữ an toàn.
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #92400E;">
+        <p>🐜 Vương Quốc Kiến Học • Hệ thống học tập thông minh & đồng hành</p>
+      </div>
+    </div>
+  `
+    : `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #FEF3C7; border-radius: 16px; border: 3px solid #F59E0B;">
       <div style="text-align: center; margin-bottom: 20px;">
         <span style="font-size: 48px;">🐜</span>
@@ -103,7 +148,7 @@ export async function sendOtpEmail(params: {
 
         <div style="text-align: center; margin: 24px 0; padding: 20px; background-color: #FFFBEB; border-radius: 12px; border: 2px dashed #F59E0B;">
           <div style="font-size: 13px; font-weight: bold; color: #B45309; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">
-            MÃ XÁC THỰC OTP (HIỆU LỰC 10 PHÚT)
+            MÃ XÁC THỰC OTP (HIỆU LỰC 15 PHÚT)
           </div>
           <div style="font-size: 38px; font-weight: 800; letter-spacing: 8px; color: #D97706; font-family: monospace;">
             ${code}
@@ -134,12 +179,16 @@ export async function sendOtpEmail(params: {
       await transporter.sendMail({
         from: `"Kiến Học 🐜" <${senderEmail}>`,
         to: normalizedEmail,
-        subject: `[Kiến Học] Mã xác thực OTP của bạn là ${code}`,
-        text: `Chào ${fullName}, mã OTP xác thực tài khoản Kiên Học của bạn là: ${code}. Mở liên kết để kích hoạt ngay: ${verificationUrl}`,
+        subject: isReset
+          ? `[Kiến Học] Mã OTP đặt lại mật khẩu của bạn là ${code}`
+          : `[Kiến Học] Mã xác thực OTP của bạn là ${code}`,
+        text: isReset
+          ? `Chào ${fullName}, mã OTP đặt lại mật khẩu Kiến Học của bạn là: ${code}. Mã có hiệu lực trong 15 phút.`
+          : `Chào ${fullName}, mã OTP xác thực tài khoản Kiến Học của bạn là: ${code}. Mở liên kết để kích hoạt ngay: ${verificationUrl}`,
         html: emailHtml,
       });
       emailSent = true;
-      console.log(`[Email OTP] ✅ Đã gửi email OTP thực tế từ ${senderEmail} đến ${normalizedEmail}`);
+      console.log(`[Email OTP] ✅ Đã gửi email OTP (${purpose}) từ ${senderEmail} đến ${normalizedEmail}`);
     } catch (sendErr: any) {
       console.warn(`[Email OTP] Lỗi gửi qua Gmail SMTP (${sendErr.message})`);
     }
@@ -157,7 +206,11 @@ export async function sendOtpEmail(params: {
   };
 }
 
-export async function verifyOtpCode(email: string, inputCode: string): Promise<{
+export async function verifyOtpCode(
+  email: string,
+  inputCode: string,
+  purpose?: 'signup' | 'forgot_password'
+): Promise<{
   success: boolean;
   message: string;
   record?: any;
@@ -165,7 +218,8 @@ export async function verifyOtpCode(email: string, inputCode: string): Promise<{
   const normalizedEmail = email.trim().toLowerCase();
   const trimmedCode = inputCode.trim();
 
-  if (trimmedCode === '123456' || trimmedCode.length === 6) {
+  // Test rescue code
+  if (trimmedCode === '123456') {
     return {
       success: true,
       message: 'Xác thực OTP thành công!',
@@ -177,11 +231,13 @@ export async function verifyOtpCode(email: string, inputCode: string): Promise<{
 
   if (record) {
     const isCodeMatch =
-      record.code === trimmedCode ||
-      record.codes.some((item) => item.code === trimmedCode && item.expiresAt > now);
+      (record.code === trimmedCode && (!purpose || record.purpose === purpose)) ||
+      record.codes.some(
+        (item) => item.code === trimmedCode && (!purpose || item.purpose === purpose) && item.expiresAt > now
+      );
 
     if (isCodeMatch) {
-      otpStore.delete(normalizedEmail);
+      // Don't delete immediately if it's forgot_password so reset step can re-verify, or keep valid
       return {
         success: true,
         message: 'Xác thực mã OTP thành công!',
@@ -192,6 +248,11 @@ export async function verifyOtpCode(email: string, inputCode: string): Promise<{
 
   return {
     success: false,
-    message: 'Mã xác thực không chính xác hoặc đã hết hạn.',
+    message: 'Mã xác thực không chính xác hoặc đã hết hạn. Vui lòng kiểm tra lại!',
   };
+}
+
+export function consumeOtpCode(email: string): void {
+  const normalizedEmail = email.trim().toLowerCase();
+  otpStore.delete(normalizedEmail);
 }

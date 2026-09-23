@@ -1,12 +1,17 @@
 import { GradeLevel, TeachBackEvaluationResult, SocraticHintResult, SocraticTutorRequest, SocraticTutorResponse } from '../types';
+import { adminService } from './adminService';
 
 export const geminiService = {
   async askSocraticTutor(params: SocraticTutorRequest): Promise<SocraticTutorResponse> {
     try {
+      const aiConfig = params.aiConfig || adminService.getAIConfig();
       const response = await fetch('/api/gemini/socratic-tutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+        body: JSON.stringify({
+          ...params,
+          aiConfig,
+        }),
       });
 
       if (!response.ok) {

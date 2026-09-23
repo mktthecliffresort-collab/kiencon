@@ -1,14 +1,17 @@
 # 🐜 KIẾN HỌC • Cùng Kiến Con Chinh Phục Tri Thức
 
-> **Ứng dụng học tập thông minh, vui vẻ và bám sát Chương trình Giáo dục Phổ thông 2018 dành riêng cho học sinh Lớp 5 & Lớp 8.**
+> **Hệ sinh thái học tập tương tác thông minh, bám sát Chương trình Giáo dục Phổ thông hiện hành (GDPT 2018) dành cho học sinh từ Lớp 1 đến Lớp 12.**
 
 ---
 
 ## 🌟 1. KIẾN HỌC LÀ GÌ?
 
-**Kiến Học** là người bạn đồng hành thân thiết giúp các bạn học sinh **Lớp 5** (giai đoạn chuẩn bị chuyển cấp) và **Lớp 8** (trọng tâm THCS) yêu thích việc học mỗi ngày. 
+**Kiến Học** là người bạn đồng hành thân thiết giúp học sinh từ **Lớp 1 đến Lớp 12** yêu thích việc học tập mỗi ngày:
+- **🎒 Khối Tiểu học (Lớp 1 - 5)**: Xây dựng nền tảng vững chắc môn Toán và Khoa học, khơi dậy trí tò mò tự nhiên qua hình ảnh trực quan sinh động (*Lớp 5 là dữ liệu trải nghiệm demo chuyên sâu*).
+- **📚 Khối THCS (Lớp 6 - 9)**: Chinh phục Toán học và Khoa học Tự nhiên (Vật lí, Hóa học, Sinh học) qua tư duy logic và thực nghiệm trực quan (*Lớp 8 là dữ liệu trải nghiệm demo chuyên sâu*).
+- **🎓 Khối THPT (Lớp 10 - 12)**: Hệ thống hóa kiến thức chuyên sâu, bám sát cấu trúc đề và chương trình GDPT hiện hành.
 
-Thay vì những bài giảng dài dòng hay học vẹt, Kiến Học biến bài học môn **Toán học** và **Khoa học Tự nhiên (Vật lí, Hóa học, Sinh học)** thành những chuyến phiêu lưu kỳ thú cùng **Đội Quân Kiến Thông Thái**.
+Thay vì những bài giảng khô khan hay học vẹt, Kiến Học biến các môn học thành những chuyến phiêu lưu kỳ thú cùng **Đội Quân Kiến Thông Thái**.
 
 ---
 
@@ -34,18 +37,18 @@ Mỗi bài học được thiết kế như một trò chơi trí tuệ gồm 4 
 Chỉ với 3 bước đơn giản, các em đã có thể bước vào Vương Quốc Kiến Học:
 
 ### Bước 1: Đăng Ký Tài Khoản Học Tập
-1. Truy cập vào đường dẫn trang web Kiến Học trên điện thoại, máy tính bảng hoặc máy tính bàn.
-2. Bảng đăng ký sẽ xuất hiện:
-   - **Tên của bạn**: Điền họ và tên thật (Ví dụ: *Minh Khang*).
-   - **Chọn Khối Lớp**: Chọn **Lớp 5** hoặc **Lớp 8**.
-   - **Tên đăng nhập (Username)**: Chọn một tên đăng nhập ngắn gọn, dễ nhớ (Ví dụ: *kien_sao_4019*).
+1. Truy cập vào trang web Kiến Học trên điện thoại, máy tính bảng hoặc máy tính bàn.
+2. Nhập các thông tin cơ bản:
+   - **Họ và tên**: Điền tên của bạn (Ví dụ: *Minh Khang*).
+   - **Chọn Khối Lớp**: Chọn khối lớp học của bạn (Lớp 1 đến Lớp 12).
+   - **Tên đăng nhập (Username)**: Chọn một tên đăng nhập ngắn gọn, dễ nhớ (Ví dụ: *kien_sao_123*).
    - **Email**: Điền email của bạn hoặc của bố mẹ để nhận mã xác minh.
    - **Mật khẩu**: Nhập mật khẩu bí mật (tối thiểu 6 ký tự).
-3. Bấm **Tiếp Tục Nhận Mã OTP** ➔ Mở hòm thư Email lấy **Mã số 6 chữ số** điền vào màn hình là xong! Các em sẽ nhận ngay **+250 XP** quà chào mừng!
+3. Bấm **Tiếp Tục Nhận Mã OTP** ➔ Mở hòm thư Email lấy **Mã xác nhận 6 số** nhập vào màn hình là hoàn tất! Bạn sẽ nhận ngay **+250 XP** quà chào mừng!
 
 ### Bước 2: Chọn Môn Học & Bài Học
 - Tại thanh công cụ trên cùng, chọn môn học bạn muốn khám phá: **Toán Học** hoặc **Khoa Học Tự Nhiên (KHTN)**.
-- Bấm vào bài học đang phát sáng trên bản đồ chặng đường.
+- Bấm vào bài học trên bản đồ chặng đường.
 
 ### Bước 3: Khám Phá Bài Học & Giữ Chuỗi Ngày Học
 - Vượt qua lần lượt 4 bước của bài học.

@@ -1,6 +1,64 @@
 # LỊCH SỬ THAY ĐỔI & NÂNG CẤP HỆ THỐNG GIAO DIỆN (UI/UX CHANGELOG)
 
-## [Phiên bản 2.3.0] - Ngày 23/09/2026
+## [Phiên bản 2.5.0] - Ngày 23/09/2026
+
+### 📌 Bối cảnh & Yêu cầu Nâng Cấp
+1. **Chức Năng Quên Mật Khẩu (Forgot Password)**:
+   - Xây dựng quy trình 3 bước hoàn chỉnh: Yêu cầu mã OTP qua Email $\rightarrow$ Xác thực OTP 6 chữ số $\rightarrow$ Đặt lại mật khẩu mới.
+   - Bắt buộc kiểm tra mật khẩu mạnh thời gian thực (tối thiểu 8 ký tự, có cả chữ cái và chữ số).
+   - Tự động đăng nhập người dùng ngay sau khi đặt lại mật khẩu thành công.
+2. **Tích Hợp Trợ Lý Học Tập AI Kiến Con (Gemini v1beta via Antigravity Gateway)**:
+   - Kết nối cổng dịch vụ AI `https://antigravity.thecliff.io.vn` với model `gemini-3-flash` và key bảo mật `sk-123456@`.
+   - Cung cấp giao diện quản trị AI linh hoạt trong AdminCP (tab Cấu Hình AI): đo độ trễ latency live, hiển thị câu trả lời mẫu, chọn nhanh model preset và cho phép nhập custom model AI bất kỳ.
+   - Hỗ trợ đầy đủ biến môi trường trên Vercel Production (`https://kiencon.vercel.app`).
+
+---
+
+## [Phiên bản 2.4.0] - Ngày 23/09/2026
+
+### 📌 Bối cảnh & Yêu cầu Nâng Cấp
+1. **Loại Bỏ Hoàn Toàn Các Cụm Từ Giải Thích Dài Dòng Trên Khung Đăng Ký**:
+   - Gỡ bỏ toàn bộ nhãn giải thích, badge thừa như `"Bắt buộc đăng nhập"`, `"(Không bắt buộc)"`, đoạn văn giải thích GDPT trong form, nhãn kỹ thuật `"Bảo mật với Supabase"`.
+   - Chuẩn hóa form đăng ký trực quan, tối giản, chuyên nghiệp với các trường: Họ và tên, Tên đăng nhập, Biệt danh, Ngày sinh, Số điện thoại, Trường học, Khối lớp (1-12), Email, Mật khẩu.
+2. **Đồng Bộ Đăng Xuất Tức Thì Đa Tab (Cross-Tab Logout Synchronization)**:
+   - Khi mở ứng dụng trên 2 hoặc nhiều tab khác nhau trong cùng trình duyệt: người dùng bấm Đăng xuất (Sign Out) ở bất kỳ tab nào, tất cả các tab khác lập tức kiểm tra và đăng xuất đồng thời dưới 100ms.
+   - Kết hợp 4 tầng kiểm soát: `BroadcastChannel`, sự kiện W3C `storage` event, trình lắng nghe `focus` & `visibilitychange`, cùng cơ chế kiểm tra định kỳ (heartbeat) đảm bảo tab nền cũng được bảo vệ an toàn.
+3. **Quy Chuẩn Hóa Toàn Diện Dự Án Hỗ Trợ K-12 (Lớp 1 đến Lớp 12)**:
+   - Cập nhật thông tin toàn bộ dự án hỗ trợ toàn diện Chương trình Giáo dục Phổ thông hiện hành (GDPT 2018) từ **Lớp 1 đến Lớp 12** (trong đó Lớp 5 và Lớp 8 là dữ liệu demo trải nghiệm chuyên sâu ban đầu).
+   - Đồng bộ hóa tài liệu `README.md` thân thiện cho phụ huynh & học sinh, quy tắc phát triển `RULES.md` và mã nguồn `App.tsx`.
+4. **Quy Tắc Lưu Vết & Changelog Bắt Buộc**:
+   - Xác lập quy tắc bắt buộc cập nhật `CHANGELOG.md` và các tài liệu liên quan sau mỗi phiên lập trình để lưu vết lịch sử phát triển.
+
+---
+
+### 🛠️ Chi tiết các Thay đổi & Nâng cấp Kỹ thuật
+
+#### 1. Tinh Gọn Hộp Đăng Ký & Xác Thực (`src/components/AuthModal.tsx`)
+- Xóa bỏ huy hiệu và điều kiện khóa chặn bắt buộc (`isMandatory`), đảm bảo nút đóng `X` và lớp phủ mờ có thể đóng mở linh hoạt.
+- Loại bỏ hoàn toàn nhãn `(Không bắt buộc)` và các chú thích dài dòng về tên đăng nhập.
+- Loại bỏ đoạn văn giải thích GDPT trong hộp chọn lớp học.
+- Chuẩn hóa các nhãn trường form ngắn gọn, dễ hiểu.
+- Loại bỏ nhãn kỹ thuật phụ `"Bảo mật với Supabase"` ở chân form xác minh.
+
+#### 2. Nâng Cấp Bộ Đồng Bộ Phiên Đa Tab (`src/services/authService.ts` & `src/App.tsx`)
+- Tích hợp hàm `checkSessionHealth()` kiểm tra trạng thái session đối chiếu với `localStorage`.
+- Bổ sung trình lắng nghe `window.addEventListener('focus')` và `document.addEventListener('visibilitychange')` tự động kích hoạt kiểm tra session ngay khi người dùng bấm vào tab khác.
+- Thiết lập định kỳ kiểm tra tự động (Heartbeat) mỗi 1.5 giây để xử lý trường hợp tab chạy nền bị trình duyệt hạn chế tài nguyên.
+- Hợp nhất và tinh gọn subscriber trong `App.tsx`: Khi phát hiện đăng xuất, lập tức reset profile về mặc định, đóng mọi modal con đang mở và hiển thị thông báo thân thiện.
+
+#### 3. Cập Nhật Hồ Sơ Dự Án & Quy Chuẩn (`README.md` & `RULES.md`)
+- `README.md`: Cập nhật tầm nhìn hỗ trợ K-12 (Lớp 1 đến Lớp 12), phân rõ 3 khối Tiểu học (Lớp 1-5), THCS (Lớp 6-9) và THPT (Lớp 10-12).
+- `RULES.md`: Bổ sung danh mục cấm các cụm từ giải thích dài dòng trên UI, chuẩn hóa quy tắc đồng bộ đa tab, phân tách bảng admin và nghĩa vụ ghi chép changelog.
+
+---
+
+### ✅ Kết Quả Kiểm Thử (Verification)
+- Kiểm tra tính tương thích đa tab: Đăng xuất trên Tab 1 kích hoạt sự kiện đồng thời đăng xuất trên Tab 2 trong tích tắc.
+- Biên dịch toàn bộ applet thành công 100% không phát sinh lỗi.
+
+---
+
+
 
 ### 📌 Bối cảnh & Yêu cầu Nâng Cấp
 1. **Tối ưu Giao diện AdminCP Dạng Responsive Dashboard**:

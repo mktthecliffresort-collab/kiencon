@@ -4,7 +4,7 @@ import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import dotenv from "dotenv";
 import { Agent, setGlobalDispatcher } from "undici";
 import { getSocraticTutorGuidance } from "./server/services/geminiTutor";
-import { sendOtpEmail, verifyOtpCode } from "./server/services/emailOtpService";
+import { sendOtpEmail, verifyOtpCode, consumeOtpCode } from "./server/services/emailOtpService";
 
 dotenv.config();
 
@@ -328,7 +328,7 @@ Hãy trả về JSON:
 // Socratic AI Tutor Chat Endpoint
 app.post("/api/gemini/socratic-tutor", async (req, res) => {
   try {
-    const { studentGrade, subject, currentTopic, questionContext, studentInput, attemptCount } = req.body;
+    const { studentGrade, subject, currentTopic, questionContext, studentInput, attemptCount, aiConfig } = req.body;
     const result = await getSocraticTutorGuidance({
       studentGrade: (Number(studentGrade) === 8 ? 8 : 5) as 5 | 8,
       subject: String(subject || "Toán / Khoa học"),
@@ -336,6 +336,7 @@ app.post("/api/gemini/socratic-tutor", async (req, res) => {
       questionContext: String(questionContext || ""),
       studentInput: String(studentInput || ""),
       attemptCount: Number(attemptCount || 1),
+      aiConfig,
     });
     return res.json(result);
   } catch (err: any) {
@@ -495,7 +496,7 @@ app.all("/api/debug/system-health", async (req, res) => {
 // Email OTP Verification Endpoints
 app.post("/api/auth/send-otp", async (req, res) => {
   try {
-    const { email, fullName, code, grade, appUrl: clientAppUrl } = req.body;
+    const { email, fullName, code, grade, purpose, appUrl: clientAppUrl } = req.body;
     if (!email) {
       return res.status(400).json({ success: false, message: "Email là bắt buộc." });
     }
@@ -506,6 +507,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
       fullName: fullName || "Học sinh Kiến",
       code: otpCode,
       grade: Number(grade) || 5,
+      purpose: purpose || 'signup',
       appUrl: origin,
     });
     return res.json(result);
@@ -521,11 +523,11 @@ app.post("/api/auth/send-otp", async (req, res) => {
 
 app.post("/api/auth/verify-otp", async (req, res) => {
   try {
-    const { email, code } = req.body;
+    const { email, code, purpose } = req.body;
     if (!email || !code) {
       return res.status(400).json({ success: false, message: "Email và mã OTP là bắt buộc." });
     }
-    const result = await verifyOtpCode(email, code);
+    const result = await verifyOtpCode(email, code, purpose);
     return res.json(result);
   } catch (error: any) {
     console.error("Lỗi xác thực OTP:", error);
@@ -533,6 +535,169 @@ app.post("/api/auth/verify-otp", async (req, res) => {
       success: false,
       message: "Lỗi xác thực OTP trên hệ thống.",
       error: error?.message,
+    });
+  }
+});
+
+// Reset Password Endpoint
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, mã OTP và mật khẩu mới là bắt buộc.",
+      });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const trimmedCode = String(code).trim();
+    const password = String(newPassword).trim();
+
+    // Kiểm tra độ mạnh mật khẩu (tối thiểu 8 ký tự, gồm cả chữ và số)
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu phải có tối thiểu 8 ký tự để bảo đảm an toàn.",
+      });
+    }
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    if (!hasLetter || !hasNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu mạnh cần chứa cả chữ cái và chữ số.",
+      });
+    }
+
+    const verifyResult = await verifyOtpCode(normalizedEmail, trimmedCode);
+    if (!verifyResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: verifyResult.message || "Mã xác thực OTP không chính xác hoặc đã hết hạn.",
+      });
+    }
+
+    // Cập nhật cơ sở dữ liệu nếu có Supabase
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    let dbUpdated = false;
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const client = createClient(supabaseUrl, supabaseKey);
+        const { data: userRecord } = await client
+          .from("users")
+          .select("id, settings")
+          .eq("email", normalizedEmail)
+          .maybeSingle();
+
+        if (userRecord) {
+          const currentSettings = (userRecord.settings && typeof userRecord.settings === "object" && !Array.isArray(userRecord.settings))
+            ? userRecord.settings
+            : {};
+          const { error: updateErr } = await client
+            .from("users")
+            .update({
+              settings: {
+                ...currentSettings,
+                password,
+                passwordUpdatedAt: new Date().toISOString(),
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", userRecord.id);
+
+          if (!updateErr) dbUpdated = true;
+        }
+      } catch (err: any) {
+        console.warn("Lỗi cập nhật mật khẩu Supabase:", err?.message);
+      }
+    }
+
+    consumeOtpCode(normalizedEmail);
+
+    return res.json({
+      success: true,
+      message: "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.",
+      dbUpdated,
+    });
+  } catch (error: any) {
+    console.error("Lỗi đặt lại mật khẩu:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Đã xảy ra sự cố trên máy chủ khi đặt lại mật khẩu.",
+      error: error?.message,
+    });
+  }
+});
+
+// Admin Test AI Endpoint
+app.post("/api/admin/test-ai", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { endpoint: rawEndpoint, apiKey: rawKey, model: rawModel } = req.body || {};
+    const endpoint = (rawEndpoint || process.env.AI_API_ENDPOINT || "https://antigravity.thecliff.io.vn").replace(/\/$/, "");
+    const apiKey = (rawKey || process.env.AI_API_KEY || process.env.GEMINI_API_KEY || "sk-123456@").trim();
+    const model = (rawModel || process.env.AI_MODEL || "gemini-3-flash").trim();
+
+    const url = `${endpoint}/v1beta/models/${model}:generateContent`;
+    const aiRes = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: 'Xin chào! Hãy trả lời ngắn gọn trong 1 câu: "Kết nối AI Vương Quốc Kiến Học thành công!"',
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 100,
+        },
+      }),
+    });
+
+    const latencyMs = Date.now() - startTime;
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      return res.status(400).json({
+        success: false,
+        latencyMs,
+        endpoint,
+        model,
+        message: `Endpoint trả về HTTP ${aiRes.status}: ${errText.slice(0, 200)}`,
+      });
+    }
+
+    const data = (await aiRes.json()) as any;
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const textPart = parts.slice().reverse().find((p: any) => !p.thought && p.text) || parts[0];
+    const reply = textPart?.text || "Đã nhận phản hồi từ model.";
+
+    return res.json({
+      success: true,
+      latencyMs,
+      endpoint,
+      model,
+      reply: reply.trim(),
+      message: `✅ Kết nối thành công tới model ${model} (Độ trễ: ${latencyMs}ms)`,
+    });
+  } catch (error: any) {
+    const latencyMs = Date.now() - startTime;
+    return res.status(500).json({
+      success: false,
+      latencyMs,
+      message: `Lỗi kết nối AI: ${error?.message}`,
     });
   }
 });

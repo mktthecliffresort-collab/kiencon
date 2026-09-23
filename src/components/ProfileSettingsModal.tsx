@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, UserThemeSettings } from '../types';
+import { UserProfile, UserThemeSettings, GradeLevel } from '../types';
 import {
   X,
   User,
@@ -98,6 +98,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const [birthDate, setBirthDate] = useState<string>(user.birthDate || '2014-08-15');
   const [email, setEmail] = useState<string>(user.email || '');
   const [password, setPassword] = useState<string>(user.password || '••••••••');
+  const [selectedGrade, setSelectedGrade] = useState<GradeLevel>(user.grade || 5);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [avatar, setAvatar] = useState<string>(user.avatar || '🐜');
 
@@ -161,6 +162,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
       setBirthDate(user.birthDate || '2014-08-15');
       setEmail(user.email || '');
       setPassword(user.password || '••••••••');
+      setSelectedGrade(user.grade || 5);
       setAvatar(user.avatar || '🐜');
       if (user.themeSettings) {
         setThemeMode(user.themeSettings.mode);
@@ -257,6 +259,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
 
     const updatedProfile: UserProfile = {
       ...user,
+      grade: selectedGrade,
       name: finalName,
       nickname: finalNickname,
       username: finalUsername || user.username,
@@ -531,6 +534,116 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                   placeholder="ví dụ: Tiểu học Dịch Vọng A / THCS Cầu Giấy"
                   className="w-full px-3.5 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:outline-none text-sm font-bold text-stone-800 bg-stone-50/50"
                 />
+              </div>
+
+              {/* Khối Lớp Học (Lớp 1 - 12 chuẩn GDPT 2018) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-black text-stone-700">
+                    Khối Lớp Đang Học (Lớp 1 - 12)
+                  </label>
+                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                    Đang chọn: Lớp {selectedGrade} ({selectedGrade <= 5 ? 'Tiểu Học' : selectedGrade <= 9 ? 'THCS' : 'THPT'})
+                  </span>
+                </div>
+
+                <div className="space-y-2 bg-stone-50/80 p-2.5 rounded-2xl border-2 border-stone-200">
+                  {/* Tiểu học */}
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] font-black text-amber-900 mb-1 px-1">
+                      <span>🎒 TIỂU HỌC (LỚP 1 - 5)</span>
+                      <span className="text-[9px] text-amber-700 font-bold">Lớp 5: Demo Chuyên Sâu ★</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {([1, 2, 3, 4, 5] as GradeLevel[]).map((g) => {
+                        const isSelected = selectedGrade === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => {
+                              audioService.playClick();
+                              setSelectedGrade(g);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center ${
+                              isSelected
+                                ? 'bg-amber-400 text-amber-950 border-2 border-amber-500 shadow-xs scale-102 ring-2 ring-amber-300/40'
+                                : 'bg-white hover:bg-amber-50 border border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span>Lớp {g}</span>
+                            {g === 5 && (
+                              <span className="text-[8px] text-amber-900 font-black uppercase">Demo ★</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* THCS */}
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] font-black text-sky-900 mb-1 px-1">
+                      <span>📚 THCS (LỚP 6 - 9)</span>
+                      <span className="text-[9px] text-sky-700 font-bold">Lớp 8: Demo Chuyên Sâu ★</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {([6, 7, 8, 9] as GradeLevel[]).map((g) => {
+                        const isSelected = selectedGrade === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => {
+                              audioService.playClick();
+                              setSelectedGrade(g);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center ${
+                              isSelected
+                                ? 'bg-sky-400 text-sky-950 border-2 border-sky-500 shadow-xs scale-102 ring-2 ring-sky-300/40'
+                                : 'bg-white hover:bg-sky-50 border border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span>Lớp {g}</span>
+                            {g === 8 && (
+                              <span className="text-[8px] text-sky-900 font-black uppercase">Demo ★</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* THPT */}
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] font-black text-purple-900 mb-1 px-1">
+                      <span>🎓 THPT (LỚP 10 - 12)</span>
+                      <span className="text-[9px] text-purple-700 font-medium">Chuẩn GDPT 2018</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([10, 11, 12] as GradeLevel[]).map((g) => {
+                        const isSelected = selectedGrade === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => {
+                              audioService.playClick();
+                              setSelectedGrade(g);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center ${
+                              isSelected
+                                ? 'bg-purple-400 text-purple-950 border-2 border-purple-500 shadow-xs scale-102 ring-2 ring-purple-300/40'
+                                : 'bg-white hover:bg-purple-50 border border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span>Lớp {g}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Password */}

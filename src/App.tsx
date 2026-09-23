@@ -20,7 +20,7 @@ import { authService } from './services/authService';
 import { Grade5MathReviewHub } from './components/Grade5MathReview/Grade5MathReviewHub';
 import { DragScrollContainer } from './components/DragScrollContainer';
 import { fireButtonParticleBurst, fireMiniBurst } from './utils/confettiHelper';
-import { INITIAL_USER_GRADE_5, INITIAL_USER_GRADE_8 } from './data/mockData';
+import { INITIAL_USER_GRADE_5, INITIAL_USER_GRADE_8, getInitialUserForGrade } from './data/mockData';
 import { Sparkles, Compass, ShieldCheck, Heart, BookOpen, Trophy, Flame, Star, Award, Zap, UserPlus, LogIn } from 'lucide-react';
 
 const checkIsAdminCP = () => {
@@ -74,20 +74,6 @@ export default function App() {
     };
   }, []);
 
-  // Listen to session changes
-  useEffect(() => {
-    const unsubscribe = authService.subscribe((session) => {
-      const authed = !!session;
-      setIsAuthenticated(authed);
-      if (!authed) {
-        setAuthModalOpen(true);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // ============================================================================
-  // MỖI LẦN ỨNG DỤNG RELOAD: Kiểm tra và load thông tin user từ Supabase (ưu tiên Supabase)
   // ============================================================================
   // MỖI LẦN ỨNG DỤNG RELOAD / MỞ LINK EMAIL:
   // 1. Kiểm tra tham số ?verify_email=...&code=... để tự động xác thực và đăng nhập ngay
@@ -116,7 +102,7 @@ export default function App() {
           } else if (verifyResult.alreadyVerified && verifyResult.user && isMounted) {
             setUser(verifyResult.user);
             setIsAuthenticated(true);
-            setAuthNotificationToast('ℹ️ Tài khoản của bạn đã được xác minh trước đó rồi! Chào mừng bạn quay lại.');
+            setAuthNotificationToast('Chào mừng bạn quay lại Vương quốc Kiến!');
             window.history.replaceState({}, document.title, window.location.pathname);
             return;
           } else if (isMounted) {
@@ -139,14 +125,9 @@ export default function App() {
           if (syncedUser.grade) {
             setCurrentGrade(syncedUser.grade);
           }
-        } else if (isMounted && !authService.isAuthenticated()) {
-          setAuthNotificationToast('Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập.');
         }
       } catch (err) {
         console.warn('Lỗi kiểm tra user từ Supabase khi reload:', err);
-        if (isMounted && !authService.isAuthenticated()) {
-          setAuthNotificationToast('Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập.');
-        }
       }
     }
 
@@ -173,7 +154,7 @@ export default function App() {
         setAlliesModalOpen(false);
         setQuestsModalOpen(false);
         setAuthNotificationToast('Tài khoản đã đăng xuất. Vui lòng đăng ký / đăng nhập để tiếp tục.');
-        const defaultUser = currentGrade === 8 ? { ...INITIAL_USER_GRADE_8 } : { ...INITIAL_USER_GRADE_5 };
+        const defaultUser = getInitialUserForGrade(currentGrade);
         setUser(defaultUser);
       } else {
         // Đồng bộ trạng thái đăng nhập từ tab khác
@@ -257,8 +238,8 @@ export default function App() {
       setSubjects(subjectsData);
       setQuests(questsData);
 
-      // Default selected subject
-      const defaultSubject = currentGrade === 5 ? 'toan_5' : 'khtn_8';
+      // Default selected subject based on grade's subjects
+      const defaultSubject = subjectsData[0]?.id || (currentGrade === 5 ? 'toan_5' : 'khtn_8');
       setSelectedSubjectId(defaultSubject);
       setSelectedDomain('vat_li');
     }
@@ -291,10 +272,6 @@ export default function App() {
   }, [currentGrade, selectedSubjectId]);
 
   const handleSwitchGrade = (newGrade: GradeLevel) => {
-    // Khi đã đăng nhập, hệ thống chỉ hiển thị ra Lớp học đã chọn, các lớp khác cần được ẩn đi
-    if (isAuthenticated && user?.grade && newGrade !== user.grade) {
-      return;
-    }
     if (newGrade === currentGrade) return;
     setCurrentGrade(newGrade);
   };
@@ -493,7 +470,7 @@ export default function App() {
                   Chào mừng bạn đến với Vương Quốc Kiến Học!
                 </h3>
                 <p className="text-xs sm:text-sm text-white/95 font-bold leading-relaxed">
-                  Người dùng cần đăng ký tạo tài khoản để bắt đầu học tập và lưu trữ toàn bộ tiến độ bài học.
+                  Đăng ký hoặc đăng nhập để lưu trữ tiến độ học tập và tích lũy điểm thưởng.
                 </p>
               </div>
             </div>
@@ -528,21 +505,25 @@ export default function App() {
             <div className="space-y-2 flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="shrink-0 text-xs font-black uppercase tracking-wider text-amber-950 bg-white/95 px-3 py-1 rounded-full shadow-xs border border-amber-300">
-                  {currentGrade === 5 ? '🎒 Kiến Con Tinh Anh' : '🔬 Kiến Con Khám Phá'}
+                  {currentGrade <= 5 ? '🎒 Tiểu Học (Lớp 1-5)' : currentGrade <= 9 ? '🔬 THCS (Lớp 6-9)' : '🎓 THPT (Lớp 10-12)'}
                 </span>
                 <span className="shrink-0 text-sm font-black text-amber-950">
-                  Chào {user.nickname ? (user.name && user.nickname !== user.name ? `${user.nickname} (${user.name})` : user.nickname) : user.name || 'Bạn Kiến'}! 🌟
+                  Chào {user.nickname ? (user.name && user.nickname !== user.name ? `${user.nickname} (${user.name})` : user.nickname) : user.name || 'Bạn Kiến'}! 🌟 (Đang xem: Lớp {currentGrade})
                 </span>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-stone-950 tracking-tight leading-tight">
-                {currentGrade === 5
+                {currentGrade <= 5
                   ? 'Vương Quốc Kiến: Vui Học Mỗi Ngày! 🐜🎉'
-                  : 'Phòng Thí Nghiệm & Tư Duy Khám Phá! 🧪⚡'}
+                  : currentGrade <= 9
+                  ? 'Phòng Thí Nghiệm & Tư Duy Khám Phá! 🧪⚡'
+                  : 'Chinh Phục Tri Thức Toàn Diện GDPT! 🎓🚀'}
               </h1>
               <p className="text-sm sm:text-base font-bold text-amber-950/85 max-w-3xl leading-snug">
-                {currentGrade === 5
+                {currentGrade <= 5
                   ? 'Giải đố cùng Kiến Con, rinh thật nhiều XP và thăng hạng vinh quang!'
-                  : 'Làm chủ hiện tượng khoa học, thực hành phản biện và bứt phá điểm số.'}
+                  : currentGrade <= 9
+                  ? 'Làm chủ hiện tượng khoa học, thực hành phản biện và bứt phá điểm số.'
+                  : 'Hệ thống hóa kiến thức trọng tâm, rèn luyện tư duy phản biện và sẵn sàng cho các kỳ thi.'}
               </p>
             </div>
 
@@ -1003,21 +984,19 @@ export default function App() {
         />
       )}
 
-      {/* Account Authentication & Email Verification Modal (Bắt buộc đăng nhập/đăng ký để sử dụng) */}
+      {/* Account Authentication & Email Verification Modal */}
       <AuthModal
         isOpen={authModalOpen}
         initialMode={authModalMode}
         onClose={() => {
-          if (isAuthenticated) {
-            setAuthModalOpen(false);
-          }
+          setAuthModalOpen(false);
         }}
         onAuthSuccess={handleAuthSuccess}
         onSignOutSuccess={handleSignOutSuccess}
         currentUser={user}
         currentGrade={currentGrade}
         onSwitchGrade={handleSwitchGrade}
-        isMandatory={!isAuthenticated}
+        isMandatory={false}
       />
 
       {/* Welcome & XP Bonus Notification Toast */}

@@ -1,4 +1,31 @@
-export type GradeLevel = 5 | 8;
+export type GradeLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+
+export type EducationalStage = 'primary' | 'secondary' | 'high_school';
+
+export const ALL_GRADES: GradeLevel[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+export const DEMO_FEATURED_GRADES: GradeLevel[] = [5, 8];
+
+export function getEducationalStage(grade: GradeLevel): EducationalStage {
+  if (grade <= 5) return 'primary';
+  if (grade <= 9) return 'secondary';
+  return 'high_school';
+}
+
+export function getStageName(stage: EducationalStage): string {
+  switch (stage) {
+    case 'primary':
+      return 'Tiểu Học (Lớp 1 - 5)';
+    case 'secondary':
+      return 'THCS (Lớp 6 - 9)';
+    case 'high_school':
+      return 'THPT (Lớp 10 - 12)';
+  }
+}
+
+export function getGradeLabel(grade: GradeLevel): string {
+  return `Lớp ${grade}`;
+}
 
 export type KHTNDomain = 'vat_li' | 'hoa_hoc' | 'sinh_hoc';
 
@@ -202,6 +229,14 @@ export interface SocraticHintResult {
   isLocalFallback?: boolean;
 }
 
+export interface AIConfig {
+  endpoint: string;
+  apiKey: string;
+  model: string;
+  provider?: 'gemini' | 'openai';
+  temperature?: number;
+}
+
 export interface SocraticTutorRequest {
   studentGrade: GradeLevel;
   subject: string;
@@ -209,6 +244,7 @@ export interface SocraticTutorRequest {
   questionContext: string;
   studentInput: string;
   attemptCount: number;
+  aiConfig?: AIConfig;
 }
 
 export interface SocraticTutorResponse {
@@ -217,6 +253,7 @@ export interface SocraticTutorResponse {
   followUpQuestion: string;
   misconceptionDetected?: string;
   isLocalFallback?: boolean;
+  modelUsed?: string;
 }
 
 export interface TutorChatMessage {

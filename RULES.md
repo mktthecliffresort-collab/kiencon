@@ -1,5 +1,5 @@
 # NGUYÊN TẮC PHÁT TRIỂN & QUY CHUẨN HỆ THỐNG (PROJECT RULES & STANDARDS)
-**Dự án**: Kiến Học (Ant Universe) - Ứng dụng Học tập Toàn diện Lớp 5 & Lớp 8  
+**Dự án**: Kiến Học (Ant Universe) - Nền tảng Học tập Toàn diện K-12 (Lớp 1 đến Lớp 12 theo Chương trình GDPT hiện hành)  
 **Áp dụng bắt buộc**: Cho mọi phiên lập trình, nâng cấp tính năng, bảo trì cơ sở dữ liệu và tinh chỉnh giao diện.
 
 ---
@@ -7,17 +7,17 @@
 ## 📌 QUY TẮC 1: QUY CHUẨN GIAO DIỆN TINH GỌN (ANTI-CLUTTER & ZERO-WORDINESS UI)
 
 ### 1.1. Mục tiêu
-Giao diện ứng dụng hướng đến đối tượng học sinh Tiểu học & THCS (Lớp 5 & Lớp 8) cùng các bậc phụ huynh. Yêu cầu cao nhất là **Trực quan - Sạch sẽ - Thao tác 1 chạm - Không gây nhiễu thị giác**.
+Giao diện ứng dụng hướng đến đối tượng học sinh toàn diện từ **Lớp 1 đến Lớp 12** cùng các bậc phụ huynh (*Lớp 5 và Lớp 8 là dữ liệu demo trải nghiệm chuyên sâu*). Yêu cầu cao nhất là **Trực quan - Sạch sẽ - Thao tác 1 chạm - Không gây nhiễu thị giác**.
 
 ### 1.2. Các điều cấm tuyệt đối
 1. **Không thêm các huy hiệu / nhãn giải thích hiển nhiên hoặc dài dòng**:
-   - ❌ CẤM: `"Bắt buộc đăng nhập"`, `"Hệ thống tự động đồng bộ"`, `"Chỉ hiển thị riêng Lớp bạn đã chọn"`, `"Tính năng dành cho tài khoản hợp lệ"`.
-   - ✅ THAY THẾ: Thiết kế trạng thái modal chặn tương tác nền tự nhiên, không cần gắn thêm nhãn thừa.
-2. **Không dùng placeholder hướng dẫn dài dòng**:
-   - ❌ CẤM: `placeholder="bỏ trống sẽ tạo ngẫu nhiên (ví dụ: kien_vui_1234)"`.
+   - ❌ CẤM: `"Bắt buộc đăng nhập"`, `"Hệ thống tự động đồng bộ"`, `"Chỉ hiển thị riêng Lớp bạn đã chọn"`, `"Tính năng dành cho tài khoản hợp lệ"`, `"(Không bắt buộc)"`.
+   - ✅ THAY THẾ: Giao diện trực quan tự nhiên, form đăng ký/đăng nhập ngắn gọn, nhãn trường súc tích (Họ tên, Biệt danh, Ngày sinh, Số điện thoại, Trường học, Khối lớp, Email, Mật khẩu).
+2. **Không dùng placeholder hoặc đoạn văn hướng dẫn dài dòng**:
+   - ❌ CẤM: `placeholder="bỏ trống sẽ tạo ngẫu nhiên (ví dụ: kien_vui_1234)"` hoặc các đoạn văn giải thích hệ thống trong form nhập liệu.
    - ✅ THAY THẾ: `placeholder="Ví dụ: kien_vui_123"` hoặc văn bản ngắn gọn dưới 20 ký tự.
 3. **Không để lộ mã kiểm thử hoặc công cụ kỹ thuật ra giao diện học sinh**:
-   - ❌ CẤM: Mã điền nhanh OTP (`"Mã xác nhận nhanh: 543475 [Điền nhanh]"`), nút `"🛠️ Chẩn đoán gửi email"`, thông số console/telemetry.
+   - ❌ CẤM: Mã điền nhanh OTP (`"Mã xác nhận nhanh: 543475 [Điền nhanh]"`), nút `"🛠️ Chẩn đoán gửi email"`, thông số console/telemetry, nhãn kỹ thuật ("Bảo mật với Supabase").
    - ✅ THAY THẾ: Mọi công cụ chẩn đoán, test DB, kiểm tra mail phải nằm hoàn toàn trong `/admincp`.
 
 ---

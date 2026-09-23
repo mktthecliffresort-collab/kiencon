@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { studentGrade, subject, currentTopic, questionContext, studentInput, attemptCount } = req.body || {};
+    const { studentGrade, subject, currentTopic, questionContext, studentInput, attemptCount, aiConfig } = req.body || {};
     const result = await getSocraticTutorGuidance({
       studentGrade: (Number(studentGrade) === 8 ? 8 : 5) as 5 | 8,
       subject: String(subject || 'Toán / Khoa học'),
@@ -26,6 +26,7 @@ export default async function handler(req: any, res: any) {
       questionContext: String(questionContext || ''),
       studentInput: String(studentInput || ''),
       attemptCount: Number(attemptCount || 1),
+      aiConfig,
     });
     return res.status(200).json(result);
   } catch (err: any) {

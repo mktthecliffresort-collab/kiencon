@@ -1,4 +1,4 @@
-import { AdminUser, AdminRole } from '../types';
+import { AdminUser, AdminRole, AIConfig } from '../types';
 
 export const DEMO_ADMINS: AdminUser[] = [
   {
@@ -132,6 +132,92 @@ class AdminService {
     return updated;
   }
 
+  // ============================================================================
+  // CẤU HÌNH AI & CUSTOM MODEL KIẾN CON
+  // ============================================================================
+  public getAIConfig(): AIConfig {
+    const defaultConfig: AIConfig = {
+      endpoint: 'https://antigravity.thecliff.io.vn',
+      apiKey: 'sk-123456@',
+      model: 'gemini-3-flash',
+      provider: 'gemini',
+    };
+
+    if (typeof window === 'undefined') return defaultConfig;
+
+    try {
+      const raw = localStorage.getItem('kienhoc_admin_ai_config');
+      if (raw) {
+        return { ...defaultConfig, ...JSON.parse(raw) };
+      }
+    } catch {
+      // ignore
+    }
+    return defaultConfig;
+  }
+
+  public saveAIConfig(config: Partial<AIConfig>): AIConfig {
+    const current = this.getAIConfig();
+    const updated: AIConfig = {
+      ...current,
+      ...config,
+      endpoint: (config.endpoint || current.endpoint).replace(/\/$/, ''),
+      apiKey: (config.apiKey || current.apiKey).trim(),
+      model: (config.model || current.model).trim(),
+    };
+
+    try {
+      localStorage.setItem('kienhoc_admin_ai_config', JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Lỗi lưu cấu hình AI:', e);
+    }
+    return updated;
+  }
+
+  public resetAIConfig(): AIConfig {
+    const defaultConfig: AIConfig = {
+      endpoint: 'https://antigravity.thecliff.io.vn',
+      apiKey: 'sk-123456@',
+      model: 'gemini-3-flash',
+      provider: 'gemini',
+    };
+    try {
+      localStorage.removeItem('kienhoc_admin_ai_config');
+    } catch {
+      // ignore
+    }
+    return defaultConfig;
+  }
+
+  public async testAIConnection(customConfig?: Partial<AIConfig>): Promise<{
+    success: boolean;
+    latencyMs: number;
+    reply?: string;
+    model?: string;
+    message: string;
+  }> {
+    const config = customConfig ? { ...this.getAIConfig(), ...customConfig } : this.getAIConfig();
+    const startTime = performance.now();
+
+    try {
+      const res = await fetch('/api/admin/test-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      const latencyMs = Math.round(performance.now() - startTime);
+      return {
+        success: false,
+        latencyMs,
+        message: `Lỗi kết nối tới endpoint: ${err?.message}`,
+      };
+    }
+  }
+
   public logout(): void {
     this.currentAdmin = null;
     try {
@@ -165,3 +251,4 @@ class AdminService {
 }
 
 export const adminService = new AdminService();
+

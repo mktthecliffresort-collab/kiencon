@@ -39,6 +39,8 @@ import {
   Trash2,
   Star,
   Sliders,
+  EyeOff,
+  Bot,
 } from 'lucide-react';
 import {
   AdminUser,
@@ -51,6 +53,7 @@ import {
   DailyQuest,
   UserProfile,
   KHTNDomain,
+  AIConfig,
 } from '../../types';
 import { adminService, DEMO_ADMINS } from '../../services/adminService';
 import { supabaseService } from '../../services/supabaseService';
@@ -88,7 +91,7 @@ export const ADMIN_ROLES_CONFIG: Record<
     badgeColor: 'bg-red-100 text-red-800 border-red-300',
     icon: '👑',
     description: 'Toàn quyền điều hành hệ thống: quản trị nhân sự, phân quyền, cấu hình hệ thống, bài học, môn học, lớp học và học viên.',
-    accessibleTabs: ['overview', 'lessons', 'subjects', 'classes', 'content', 'students', 'staff', 'database', 'production'],
+    accessibleTabs: ['overview', 'lessons', 'subjects', 'classes', 'content', 'students', 'staff', 'database', 'production', 'ai_config'],
   },
   lesson_manager: {
     role: 'lesson_manager',
@@ -97,7 +100,7 @@ export const ADMIN_ROLES_CONFIG: Record<
     badgeColor: 'bg-blue-100 text-blue-800 border-blue-300',
     icon: '📚',
     description: 'Biên soạn, cấu trúc 4 bước (Khám phá, Luyện tập, Vận dụng, Giảng lại), phân phối điểm XP và xuất bản bài học.',
-    accessibleTabs: ['overview', 'lessons', 'content'],
+    accessibleTabs: ['overview', 'lessons', 'content', 'ai_config'],
   },
   subject_manager: {
     role: 'subject_manager',
@@ -124,7 +127,7 @@ export const ADMIN_ROLES_CONFIG: Record<
     badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
     icon: '🎯',
     description: 'Quản lý cốt truyện Kiến Con, ngân hàng nhiệm vụ hàng ngày (Quests), linh vật đồng hành và đề thi.',
-    accessibleTabs: ['overview', 'content', 'lessons'],
+    accessibleTabs: ['overview', 'content', 'lessons', 'ai_config'],
   },
   student_manager: {
     role: 'student_manager',
@@ -280,8 +283,22 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
 
   // Active navigation tab: mapped directly to requirements
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'lessons' | 'subjects' | 'classes' | 'content' | 'students' | 'staff' | 'database' | 'production'
+    'overview' | 'lessons' | 'subjects' | 'classes' | 'content' | 'students' | 'staff' | 'database' | 'production' | 'ai_config'
   >('overview');
+
+  // AI Configuration State
+  const [aiConfig, setAiConfig] = useState<AIConfig>(() => adminService.getAIConfig());
+  const [customModelInput, setCustomModelInput] = useState<string>('');
+  const [testingAI, setTestingAI] = useState<boolean>(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    latencyMs?: number;
+    reply?: string;
+    model?: string;
+    message?: string;
+  } | null>(null);
+  const [aiSavedSuccess, setAiSavedSuccess] = useState<boolean>(false);
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
 
   // Mobile drawer state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -945,6 +962,7 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
                   { id: 'staff', label: 'Nhân Sự & Quyền', icon: Users },
                   { id: 'database', label: 'Quản Lý CSDL Supabase', icon: Database },
                   { id: 'production', label: 'Chẩn Đoán & Nhật Ký', icon: Wrench },
+                  { id: 'ai_config', label: 'Cấu Hình AI (Gemini)', icon: Bot },
                 ].map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
@@ -1883,6 +1901,307 @@ export const AdminCPPage: React.FC<AdminCPPageProps> = ({
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* TAB 10: CẤU HÌNH AI TRỢ LÝ KIẾN CON (GEMINI)              */}
+              {/* ========================================================= */}
+              {activeTab === 'ai_config' && (
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight flex items-center gap-2">
+                        <Bot className="w-6 h-6 text-amber-500" />
+                        <span>Cấu Hình Trợ Lý Học Tập AI Kiến Con (Gemini)</span>
+                      </h2>
+                      <p className="text-xs sm:text-sm text-stone-500 font-medium">
+                        Quản trị kết nối AI, tùy biến Model, Endpoint và kiểm tra chất lượng phản hồi trực tiếp
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audioService.playClick();
+                          const def = adminService.resetAIConfig();
+                          setAiConfig(def);
+                          setCustomModelInput('');
+                          setTestResult(null);
+                          setAiSavedSuccess(true);
+                          setTimeout(() => setAiSavedSuccess(false), 3000);
+                        }}
+                        className="px-3 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold transition-colors"
+                      >
+                        Khôi Phục Mặc Định
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audioService.playClick();
+                          const updated = adminService.saveAIConfig(aiConfig);
+                          setAiConfig(updated);
+                          setAiSavedSuccess(true);
+                          setTimeout(() => setAiSavedSuccess(false), 3000);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black shadow-md flex items-center gap-1.5 transition-transform active:scale-95"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>Lưu Cấu Hình AI</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {aiSavedSuccess && (
+                    <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Đã lưu thành công cấu hình AI! Các phiên trò chuyện cùng Kiến Con sẽ sử dụng cấu hình mới này ngay lập tức.</span>
+                    </div>
+                  )}
+
+                  {/* Summary Metric Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-white border border-stone-200 rounded-2xl p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-lg">
+                        🐜
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[11px] text-stone-500 font-semibold uppercase tracking-wider">Model Hoạt Động</div>
+                        <div className="font-mono font-black text-amber-950 truncate text-sm">
+                          {aiConfig.model || 'gemini-3-flash'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-stone-200 rounded-2xl p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
+                        <Server className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[11px] text-stone-500 font-semibold uppercase tracking-wider">Gateway Endpoint</div>
+                        <div className="font-mono font-bold text-stone-900 truncate text-xs">
+                          {aiConfig.endpoint.replace(/^https?:\/\//, '')}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-stone-200 rounded-2xl p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[11px] text-stone-500 font-semibold uppercase tracking-wider">Giao Thức AI</div>
+                        <div className="font-black text-stone-900 text-xs">Gemini v1beta REST API</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Configuration Form Card */}
+                  <div className="bg-white border border-stone-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
+                    <h3 className="font-black text-sm text-stone-900 uppercase tracking-wider flex items-center gap-2 border-b border-stone-100 pb-3">
+                      <Sliders className="w-4 h-4 text-amber-600" />
+                      <span>Thông Số Kết Nối AI</span>
+                    </h3>
+
+                    {/* API Endpoint */}
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        API Endpoint (Đường dẫn máy chủ AI) <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Server className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                        <input
+                          type="text"
+                          value={aiConfig.endpoint}
+                          onChange={(e) => setAiConfig({ ...aiConfig, endpoint: e.target.value.trim() })}
+                          placeholder="https://antigravity.thecliff.io.vn"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 font-mono text-xs font-bold text-stone-900 outline-none"
+                        />
+                      </div>
+                      <p className="text-[11px] text-stone-500 mt-1">
+                        Hỗ trợ cổng dịch vụ Antigravity Proxy (<code>https://antigravity.thecliff.io.vn</code>) hoặc Google Gemini API gốc.
+                      </p>
+                    </div>
+
+                    {/* API Key */}
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        API Key (Khóa bảo mật) <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Key className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                        <input
+                          type={showApiKey ? 'text' : 'password'}
+                          value={aiConfig.apiKey}
+                          onChange={(e) => setAiConfig({ ...aiConfig, apiKey: e.target.value.trim() })}
+                          placeholder="sk-123456@"
+                          className="w-full pl-10 pr-10 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 font-mono text-xs font-bold text-stone-900 outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1"
+                        >
+                          {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Model AI Selection */}
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                        Lựa Chọn Model AI Cho Kiến Con <span className="text-rose-500">*</span>
+                      </label>
+
+                      {/* Presets */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                        {[
+                          { id: 'gemini-3-flash', name: 'Gemini 3 Flash', desc: 'Suy luận nhanh, thông minh (Đề xuất)' },
+                          { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', desc: 'Mô hình thế hệ mới nhất' },
+                          { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', desc: 'Phản hồi cực nhanh, độ trễ thấp' },
+                          { id: 'gemini-2.5-flash-thinking', name: 'Gemini 2.5 Thinking', desc: 'Kèm tư duy logic từng bước' },
+                          { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', desc: 'Phân tích khoa học nâng cao' },
+                          { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', desc: 'Phiên bản cân bằng' },
+                        ].map((m) => {
+                          const isSelected = aiConfig.model === m.id;
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                audioService.playClick();
+                                setAiConfig({ ...aiConfig, model: m.id });
+                                setCustomModelInput('');
+                              }}
+                              className={`p-3 rounded-2xl text-left border-2 transition-all ${
+                                isSelected
+                                  ? 'bg-amber-50 border-amber-500 shadow-xs'
+                                  : 'bg-white border-stone-200 hover:border-stone-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className={`text-xs font-black ${isSelected ? 'text-amber-950' : 'text-stone-800'}`}>
+                                  {m.name}
+                                </span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                              </div>
+                              <span className="block text-[10px] text-stone-500 mt-0.5">{m.desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Custom Model Input */}
+                      <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-1.5">
+                        <span className="block text-xs font-bold text-stone-700">Hoặc Nhập Tên Custom Model AI Khác:</span>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={customModelInput || (['gemini-3-flash', 'gemini-3.7-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-thinking', 'gemini-3.1-pro', 'gemini-3.5-flash'].includes(aiConfig.model) ? '' : aiConfig.model)}
+                            onChange={(e) => {
+                              const val = e.target.value.trim();
+                              setCustomModelInput(val);
+                              if (val) {
+                                setAiConfig({ ...aiConfig, model: val });
+                              }
+                            }}
+                            placeholder="Ví dụ: gemini-3.1-flash-lite, claude-3-7-sonnet..."
+                            className="flex-1 px-3 py-2 rounded-xl bg-white border border-stone-300 font-mono text-xs font-bold outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Test Connection Live Button */}
+                    <div className="pt-2 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        disabled={testingAI}
+                        onClick={async () => {
+                          audioService.playClick();
+                          setTestingAI(true);
+                          setTestResult(null);
+                          try {
+                            const res = await adminService.testAIConnection(aiConfig);
+                            setTestResult(res);
+                            if (res.success) {
+                              audioService.playSuccess();
+                            }
+                          } catch (err: any) {
+                            setTestResult({
+                              success: false,
+                              message: `Lỗi: ${err?.message}`,
+                            });
+                          } finally {
+                            setTestingAI(false);
+                          }
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95 disabled:opacity-50"
+                      >
+                        {testingAI ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+                            <span>Đang kiểm tra kết nối tới {aiConfig.model}...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-4 h-4 text-amber-400" />
+                            <span>Kiểm Tra Kết Nối AI (Live Test)</span>
+                          </>
+                        )}
+                      </button>
+
+                      {testResult && (
+                        <div
+                          className={`flex-1 p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 ${
+                            testResult.success
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                              : 'bg-rose-50 border-rose-300 text-rose-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {testResult.success ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            ) : (
+                              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                            )}
+                            <div>
+                              <span>{testResult.message}</span>
+                              {testResult.reply && (
+                                <p className="text-[11px] text-stone-600 italic mt-0.5">
+                                  Phản hồi: &ldquo;{testResult.reply}&rdquo;
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          {typeof testResult.latencyMs === 'number' && (
+                            <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-white border border-stone-200 shrink-0">
+                              {testResult.latencyMs}ms
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Vercel Deployment Instructions Card */}
+                  <div className="bg-stone-900 text-stone-200 rounded-3xl p-5 sm:p-6 space-y-3 border border-stone-800">
+                    <div className="flex items-center gap-2 text-amber-400 font-black text-sm uppercase tracking-wider">
+                      <Server className="w-4 h-4" />
+                      <span>Hướng Dẫn Cấu Hình Biến Môi Trường Trên Vercel Production</span>
+                    </div>
+                    <p className="text-xs text-stone-400 leading-relaxed">
+                      Để triển khai hệ thống AI trên Production Vercel (<code>https://kiencon.vercel.app</code>), bạn truy cập vào <strong>Vercel Project Dashboard &rarr; Settings &rarr; Environment Variables</strong> và thêm các biến sau:
+                    </p>
+                    <div className="bg-stone-950 p-3.5 rounded-2xl border border-stone-800 font-mono text-xs space-y-1.5 text-stone-300">
+                      <div><strong className="text-amber-400">AI_API_ENDPOINT</strong> = <code>https://antigravity.thecliff.io.vn</code></div>
+                      <div><strong className="text-amber-400">AI_API_KEY</strong> = <code>sk-123456@</code></div>
+                      <div><strong className="text-amber-400">AI_MODEL</strong> = <code>gemini-3-flash</code></div>
+                      <div><strong className="text-amber-400">GEMINI_API_KEY</strong> = <code>sk-123456@</code></div>
                     </div>
                   </div>
                 </div>

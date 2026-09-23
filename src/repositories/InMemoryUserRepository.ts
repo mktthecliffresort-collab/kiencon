@@ -1,11 +1,11 @@
 import { IUserRepository } from './IUserRepository';
 import { UserProfile, GradeLevel } from '../types';
-import { INITIAL_USER_GRADE_5, INITIAL_USER_GRADE_8 } from '../data/mockData';
+import { INITIAL_USER_GRADE_5, INITIAL_USER_GRADE_8, getInitialUserForGrade } from '../data/mockData';
 
 const STORAGE_KEY_PREFIX = 'kienhoc_user_v1_';
 
 export class InMemoryUserRepository implements IUserRepository {
-  private profiles: Record<GradeLevel, UserProfile>;
+  private profiles: Partial<Record<GradeLevel, UserProfile>>;
 
   constructor() {
     this.profiles = {
@@ -35,17 +35,20 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async getUserProfile(grade: GradeLevel): Promise<UserProfile> {
-    return { ...this.profiles[grade] };
+    if (!this.profiles[grade]) {
+      this.profiles[grade] = this.loadProfileFromStorage(grade) || getInitialUserForGrade(grade);
+    }
+    return { ...this.profiles[grade]! };
   }
 
   async updateUserProfile(profile: UserProfile): Promise<UserProfile> {
     this.profiles[profile.grade] = { ...profile };
     this.saveProfileToStorage(profile);
-    return { ...this.profiles[profile.grade] };
+    return { ...this.profiles[profile.grade]! };
   }
 
   async addXP(grade: GradeLevel, amount: number): Promise<UserProfile> {
-    const current = this.profiles[grade];
+    const current = await this.getUserProfile(grade);
     const newXP = current.xp + amount;
     // Simple level formula: level = Math.floor(newXP / 200) + 1
     const newLevel = Math.floor(newXP / 200) + 1;
@@ -67,7 +70,7 @@ export class InMemoryUserRepository implements IUserRepository {
     subjectId: string,
     masteryDelta: number
   ): Promise<UserProfile> {
-    const current = this.profiles[grade];
+    const current = await this.getUserProfile(grade);
     const completedSet = new Set(current.completedLessons);
     completedSet.add(lessonId);
 
@@ -111,7 +114,7 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async incrementStreak(grade: GradeLevel): Promise<UserProfile> {
-    const current = this.profiles[grade];
+    const current = await this.getUserProfile(grade);
     const updated: UserProfile = {
       ...current,
       streakDays: (current.streakDays || 0) + 1,

@@ -179,6 +179,78 @@ export const SUBJECTS_GRADE_8: Subject[] = [
   },
 ];
 
+// Danh mục môn học chuẩn Chương trình GDPT 2018 cho toàn bộ Lớp 1 - 12
+export const ALL_GRADE_SUBJECTS: Record<number, Subject[]> = {
+  1: [
+    { id: 'toan_1', name: 'Toán học', code: 'TOAN-1', grade: 1, iconName: 'Calculator', color: 'amber', description: 'Các số trong phạm vi 100, phép cộng trừ đơn giản và hình học trực quan.' },
+    { id: 'tieng_viet_1', name: 'Tiếng Việt', code: 'TV-1', grade: 1, iconName: 'BookOpen', color: 'rose', description: 'Âm, vần, tập đọc và luyện viết những câu đầu tiên.' },
+    { id: 'tieng_anh_1', name: 'Tiếng Anh', code: 'ENG-1', grade: 1, iconName: 'Languages', color: 'indigo', description: 'Từ vựng làm quen qua bài hát, hình ảnh và trò chơi.' },
+    { id: 'tnxh_1', name: 'Tự nhiên & Xã hội', code: 'TNXH-1', grade: 1, iconName: 'Compass', color: 'emerald', description: 'Gia đình, trường học, cơ thể người và thế giới quanh em.' },
+  ],
+  2: [
+    { id: 'toan_2', name: 'Toán học', code: 'TOAN-2', grade: 2, iconName: 'Calculator', color: 'amber', description: 'Phép cộng trừ có nhớ trong phạm vi 1000, bảng nhân 2 và 5.' },
+    { id: 'tieng_viet_2', name: 'Tiếng Việt', code: 'TV-2', grade: 2, iconName: 'BookOpen', color: 'rose', description: 'Mở rộng vốn từ, đọc hiểu câu chuyện và viết đoạn văn ngắn.' },
+    { id: 'tieng_anh_2', name: 'Tiếng Anh', code: 'ENG-2', grade: 2, iconName: 'Languages', color: 'indigo', description: 'Giao tiếp tình huống lớp học và gia đình sinh động.' },
+    { id: 'tnxh_2', name: 'Tự nhiên & Xã hội', code: 'TNXH-2', grade: 2, iconName: 'Compass', color: 'emerald', description: 'Nơi sống, nghề nghiệp và thực vật, động vật quanh ta.' },
+  ],
+  3: [
+    { id: 'toan_3', name: 'Toán học', code: 'TOAN-3', grade: 3, iconName: 'Calculator', color: 'amber', description: 'Bảng nhân chia 1-9, số có 4 chữ số, chu vi diện tích hình vuông, chữ nhật.' },
+    { id: 'tieng_viet_3', name: 'Tiếng Việt', code: 'TV-3', grade: 3, iconName: 'BookOpen', color: 'rose', description: 'Biện pháp tu từ so sánh, nhân hóa và kể chuyện sáng tạo.' },
+    { id: 'tieng_anh_3', name: 'Tiếng Anh', code: 'ENG-3', grade: 3, iconName: 'Languages', color: 'indigo', description: 'Luyện 4 kỹ năng nghe nói đọc viết căn bản theo chủ đề.' },
+    { id: 'tin_cn_3', name: 'Tin học & Công nghệ', code: 'THCN-3', grade: 3, iconName: 'Cpu', color: 'cyan', description: 'Làm quen máy tính, chuột bàn phím và thủ công kỹ thuật.' },
+  ],
+  4: [
+    { id: 'toan_4', name: 'Toán học', code: 'TOAN-4', grade: 4, iconName: 'Calculator', color: 'amber', description: 'Số có nhiều chữ số, phân số căn bản, góc nhọn góc tù và trung bình cộng.' },
+    { id: 'tieng_viet_4', name: 'Tiếng Việt', code: 'TV-4', grade: 4, iconName: 'BookOpen', color: 'rose', description: 'Văn miêu tả đồ vật, cây cối và phân tích từ loại Tiếng Việt.' },
+    { id: 'khoa_hoc_4', name: 'Khoa học', code: 'KH-4', grade: 4, iconName: 'FlaskConical', color: 'emerald', description: 'Nước, không khí, ánh sáng, nhiệt độ và dinh dưỡng con người.' },
+    { id: 'ls_dl_4', name: 'Lịch sử & Địa lí', code: 'LSDL-4', grade: 4, iconName: 'Compass', color: 'orange', description: 'Các vùng miền đất nước Việt Nam và khởi nguồn lịch sử dân tộc.' },
+  ],
+  5: SUBJECTS_GRADE_5, // Demo Chuyên Sâu
+  6: [
+    { id: 'toan_6', name: 'Toán học', code: 'TOAN-6', grade: 6, iconName: 'Binary', color: 'amber', description: 'Tập hợp, số nguyên, phân số số thập phân và hình học trực quan.' },
+    { id: 'khtn_6', name: 'Khoa học tự nhiên', code: 'KHTN-6', grade: 6, iconName: 'Atom', color: 'blue', description: 'Tế bào, chất tinh khiết, lực và năng lượng biến đổi.' },
+    { id: 'ngu_van_6', name: 'Ngữ văn', code: 'VAN-6', grade: 6, iconName: 'BookOpen', color: 'rose', description: 'Truyền thuyết, cổ tích, ký và thơ lục bát trữ tình.' },
+    { id: 'tieng_anh_6', name: 'Tiếng Anh', code: 'ENG-6', grade: 6, iconName: 'Globe', color: 'indigo', description: 'Cuộc sống học đường, bạn bè và kỹ năng giao tiếp trung học.' },
+  ],
+  7: [
+    { id: 'toan_7', name: 'Toán học', code: 'TOAN-7', grade: 7, iconName: 'Binary', color: 'amber', description: 'Số hữu tỉ, số thực, biểu thức đại số và tam giác bằng nhau.' },
+    { id: 'khtn_7', name: 'Khoa học tự nhiên', code: 'KHTN-7', grade: 7, iconName: 'Atom', color: 'blue', description: 'Nguyên tử, bảng tuần hoàn, quang học, âm thanh và trao đổi chất.' },
+    { id: 'ngu_van_7', name: 'Ngữ văn', code: 'VAN-7', grade: 7, iconName: 'BookOpen', color: 'rose', description: 'Nghị luận xã hội, tản văn và kịch bản văn học Việt Nam.' },
+    { id: 'tieng_anh_7', name: 'Tiếng Anh', code: 'ENG-7', grade: 7, iconName: 'Globe', color: 'indigo', description: 'Thói quen lành mạnh, âm nhạc nghệ thuật và du lịch khám phá.' },
+  ],
+  8: SUBJECTS_GRADE_8, // Demo Chuyên Sâu
+  9: [
+    { id: 'toan_9', name: 'Toán học', code: 'TOAN-9', grade: 9, iconName: 'Binary', color: 'amber', description: 'Căn bậc hai, phương trình bậc hai, hệ thức lượng và đường tròn.' },
+    { id: 'khtn_9', name: 'Khoa học tự nhiên', code: 'KHTN-9', grade: 9, iconName: 'Atom', color: 'blue', description: 'Điện từ học, năng lượng tái tạo, kim loại và di truyền học Men-đen.' },
+    { id: 'ngu_van_9', name: 'Ngữ văn', code: 'VAN-9', grade: 9, iconName: 'BookOpen', color: 'rose', description: 'Văn học hiện đại, nghị luận văn học và kỹ năng luyện thi vào 10.' },
+    { id: 'tieng_anh_9', name: 'Tiếng Anh', code: 'ENG-9', grade: 9, iconName: 'Globe', color: 'indigo', description: 'Nghề nghiệp tương lai, thế giới tự nhiên và đề thi chuyển cấp.' },
+  ],
+  10: [
+    { id: 'toan_10', name: 'Toán học', code: 'TOAN-10', grade: 10, iconName: 'Binary', color: 'amber', description: 'Mệnh đề, tập hợp, bất phương trình bậc hai, véc-tơ và lượng giác.' },
+    { id: 'vat_li_10', name: 'Vật lí', code: 'VL-10', grade: 10, iconName: 'Zap', color: 'blue', description: 'Động học chất điểm, định luật Newton, năng lượng và công suất.' },
+    { id: 'hoa_hoc_10', name: 'Hóa học', code: 'HH-10', grade: 10, iconName: 'FlaskRound', color: 'purple', description: 'Cấu tạo nguyên tử, liên kết hóa học và phản ứng oxi hóa - khử.' },
+    { id: 'sinh_hoc_10', name: 'Sinh học', code: 'SH-10', grade: 10, iconName: 'Leaf', color: 'emerald', description: 'Sinh học tế bào, vi sinh vật và công nghệ enzyme hiện đại.' },
+    { id: 'ngu_van_10', name: 'Ngữ văn', code: 'VAN-10', grade: 10, iconName: 'BookOpen', color: 'rose', description: 'Sử thi, thần thoại, chèo tuồng truyền thống và văn học trung đại.' },
+    { id: 'tieng_anh_10', name: 'Tiếng Anh', code: 'ENG-10', grade: 10, iconName: 'Globe', color: 'indigo', description: 'Công nghệ số, bình đẳng giới và phát triển bền vững toàn cầu.' },
+  ],
+  11: [
+    { id: 'toan_11', name: 'Toán học', code: 'TOAN-11', grade: 11, iconName: 'Binary', color: 'amber', description: 'Hàm số lượng giác, dãy số cấp số cộng nhân, giới hạn và đạo hàm.' },
+    { id: 'vat_li_11', name: 'Vật lí', code: 'VL-11', grade: 11, iconName: 'Zap', color: 'blue', description: 'Dao động điều hòa, sóng cơ sóng âm, điện trường và dòng điện không đổi.' },
+    { id: 'hoa_hoc_11', name: 'Hóa học', code: 'HH-11', grade: 11, iconName: 'FlaskRound', color: 'purple', description: 'Cân bằng hóa học, nitrogen - sulfur và hóa học hữu cơ đại cương.' },
+    { id: 'sinh_hoc_11', name: 'Sinh học', code: 'SH-11', grade: 11, iconName: 'Leaf', color: 'emerald', description: 'Trao đổi chất và năng lượng ở sinh vật, cảm ứng và sinh sản.' },
+  ],
+  12: [
+    { id: 'toan_12', name: 'Toán học', code: 'TOAN-12', grade: 12, iconName: 'Binary', color: 'amber', description: 'Khảo sát hàm số, nguyên hàm tích phân, tọa độ Oxyz và số phức.' },
+    { id: 'vat_li_12', name: 'Vật lí', code: 'VL-12', grade: 12, iconName: 'Zap', color: 'blue', description: 'Vật lí nhiệt, khí lí tưởng, từ trường và vật lí hạt nhân hiện đại.' },
+    { id: 'hoa_hoc_12', name: 'Hóa học', code: 'HH-12', grade: 12, iconName: 'FlaskRound', color: 'purple', description: 'Ester - lipid, carbohydrate, polymer và hóa học thực tiễn đời sống.' },
+    { id: 'sinh_hoc_12', name: 'Sinh học', code: 'SH-12', grade: 12, iconName: 'Leaf', color: 'emerald', description: 'Di truyền học phân tử, tiến hóa và sinh thái học bảo tồn.' },
+  ],
+};
+
+export function getSubjectsForGrade(grade: GradeLevel): Subject[] {
+  return ALL_GRADE_SUBJECTS[grade] || SUBJECTS_GRADE_5;
+}
+
 export const LESSONS: Lesson[] = [
   // Grade 5 SGK Math Lessons Series (Kết nối tri thức với cuộc sống)
   ...GRADE_5_SGK_LESSONS,
@@ -598,6 +670,53 @@ export const INITIAL_USER_GRADE_8: UserProfile = {
     ambientChime: false,
   },
 };
+
+export function getInitialUserForGrade(grade: GradeLevel): UserProfile {
+  if (grade === 5) return { ...INITIAL_USER_GRADE_5 };
+  if (grade === 8) return { ...INITIAL_USER_GRADE_8 };
+
+  const subjects = getSubjectsForGrade(grade);
+  const primarySubId = subjects[0]?.id || `sub_${grade}`;
+  const defaultMastery: Record<string, number> = {};
+  subjects.forEach((s) => {
+    defaultMastery[s.id] = 0;
+  });
+
+  const stage = grade <= 5 ? 'Tiểu Học' : grade <= 9 ? 'THCS' : 'THPT';
+  const defaultAvatar = grade <= 5 ? '🐜' : grade <= 9 ? '⚡' : '🧑‍🎓';
+  const defaultColor = grade <= 5 ? 'amber' : grade <= 9 ? 'sky' : 'emerald';
+
+  return {
+    id: `guest_grade_${grade}`,
+    name: `Học sinh Lớp ${grade}`,
+    nickname: `Kiến Lớp ${grade}`,
+    birthDate: `${2024 - (6 + grade)}-05-15`,
+    email: '',
+    username: '',
+    phone: '',
+    schoolName: '',
+    enrolledCourses: [primarySubId],
+    role: 'student',
+    isVerified: false,
+    password: '',
+    grade,
+    avatar: defaultAvatar,
+    xp: 0,
+    level: 1,
+    streakDays: 1,
+    lastActiveDate: new Date().toISOString(),
+    completedLessons: [],
+    subjectMastery: defaultMastery,
+    inventory: [`Huy hiệu Khởi Đầu Lớp ${grade} (${stage})`],
+    themeSettings: {
+      mode: 'light',
+      accentColor: defaultColor as any,
+      soundEnabled: true,
+      soundVolume: 80,
+      ambientChime: false,
+    },
+  };
+}
 
 export const INITIAL_QUESTS: DailyQuest[] = [
   {

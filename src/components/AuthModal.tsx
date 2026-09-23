@@ -31,7 +31,7 @@ import {
 
 interface AuthModalProps {
   isOpen: boolean;
-  initialMode?: 'signin' | 'signup' | 'verification_pending' | 'signout_confirm';
+  initialMode?: 'signin' | 'signup' | 'verification_pending' | 'signout_confirm' | 'forgot_password_request';
   onClose: () => void;
   onAuthSuccess: (user: UserProfile, message?: string) => void;
   onSignOutSuccess: (defaultUser: UserProfile) => void;
@@ -63,7 +63,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onOpenDebug,
   isMandatory = false,
 }) => {
-  const [mode, setMode] = useState<'signin' | 'signup' | 'verification_pending' | 'verify' | 'welcome' | 'signout_confirm'>(initialMode);
+  const [mode, setMode] = useState<
+    | 'signin'
+    | 'signup'
+    | 'verification_pending'
+    | 'verify'
+    | 'welcome'
+    | 'signout_confirm'
+    | 'forgot_password_request'
+    | 'forgot_password_verify'
+    | 'forgot_password_reset'
+  >(initialMode);
 
   // Sign In / Sign Up Form States
   const [fullName, setFullName] = useState<string>('');
@@ -77,6 +87,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel>(currentGrade || 5);
   const [selectedAvatar, setSelectedAvatar] = useState<string>('🐜');
+
+  // Forgot Password / Reset Password Form States
+  const [resetEmail, setResetEmail] = useState<string>('');
+  const [resetOtp, setResetOtp] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState<string>('');
+  const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState<boolean>(false);
 
   // Email Verification State
   const [verificationCode, setVerificationCode] = useState<string>('');
@@ -376,41 +394,155 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  // 7. Handle Forgot Password - Send OTP
+  const handleSendPasswordResetOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessInfo(null);
+    setLoading(true);
+    audioService.playClick();
+
+    const targetEmail = resetEmail.trim() || email.trim();
+    if (!targetEmail || !targetEmail.includes('@')) {
+      setErrorMessage('Vui lòng nhập địa chỉ email hợp lệ để nhận mã xác minh OTP.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const result = await authService.sendPasswordResetOtp(targetEmail);
+      if (result.success) {
+        audioService.playClick();
+        setSuccessInfo(result.message);
+        setResendCooldown(30);
+        setMode('forgot_password_verify');
+      } else {
+        setErrorMessage(result.message || 'Không thể gửi mã xác nhận OTP.');
+      }
+    } catch {
+      setErrorMessage('Đã xảy ra lỗi kết nối khi gửi mã OTP đặt lại mật khẩu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 8. Handle Forgot Password - Verify OTP Code
+  const handleVerifyPasswordResetOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setLoading(true);
+    audioService.playClick();
+
+    const targetEmail = resetEmail.trim() || email.trim();
+    const targetCode = resetOtp.trim();
+
+    if (!targetCode || targetCode.length < 6) {
+      setErrorMessage('Vui lòng nhập đủ 6 chữ số mã xác thực OTP.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const result = await authService.verifyPasswordResetOtp(targetEmail, targetCode);
+      if (result.success) {
+        audioService.playSuccess();
+        setSuccessInfo(result.message);
+        setMode('forgot_password_reset');
+      } else {
+        audioService.playClick();
+        setErrorMessage(result.message || 'Mã OTP không chính xác hoặc đã hết hạn.');
+      }
+    } catch {
+      setErrorMessage('Không thể xác thực mã OTP lúc này. Vui lòng thử lại!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 9. Handle Forgot Password - Reset Password Submit
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setLoading(true);
+    audioService.playClick();
+
+    const targetEmail = resetEmail.trim() || email.trim();
+    const targetCode = resetOtp.trim();
+
+    if (newPassword !== confirmNewPassword) {
+      setErrorMessage('Mật khẩu xác nhận không khớp. Vui lòng nhập lại!');
+      setLoading(false);
+      return;
+    }
+
+    const strength = authService.validateStrongPassword(newPassword);
+    if (!strength.isValid) {
+      setErrorMessage(strength.message);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const result = await authService.resetPassword({
+        email: targetEmail,
+        code: targetCode,
+        newPassword,
+      });
+
+      if (result.success && result.user) {
+        audioService.playCelebrationBurst();
+        fireGrandCelebration();
+        setToastMessage(result.message);
+        onAuthSuccess(result.user, result.message);
+        if (onSwitchGrade && result.user.grade !== currentGrade) {
+          onSwitchGrade(result.user.grade);
+        }
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else {
+        setErrorMessage(result.message || 'Không thể đặt lại mật khẩu.');
+      }
+    } catch {
+      setErrorMessage('Đã xảy ra lỗi khi cập nhật mật khẩu mới.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div
       id="auth-modal-overlay"
-      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto ${
-        isMandatory ? 'bg-stone-950/85 backdrop-blur-md' : 'bg-stone-900/60 backdrop-blur-xs'
-      }`}
-      onClick={isMandatory ? undefined : onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto bg-stone-900/60 backdrop-blur-xs"
+      onClick={onClose}
     >
       <div
         id="auth-modal-container"
-        className={`relative w-full ${
-          isMandatory
-            ? 'max-w-xl sm:max-w-2xl ring-8 ring-amber-400/25 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)]'
-            : 'max-w-md'
-        } bg-white rounded-3xl shadow-2xl border-4 border-amber-300 overflow-hidden transform transition-all my-auto`}
+        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border-4 border-amber-300 overflow-hidden transform transition-all my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Decor */}
         <div className="bg-gradient-to-r from-amber-400 via-amber-500 to-emerald-500 px-6 py-5 text-white relative">
-          {!isMandatory && (
-            <button
-              onClick={() => {
-                audioService.playClick();
-                onClose();
-              }}
-              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
-              title="Đóng cửa sổ"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            onClick={() => {
+              audioService.playClick();
+              onClose();
+            }}
+            className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+            title="Đóng cửa sổ"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-white text-amber-600 flex items-center justify-center text-2xl shadow-md border border-amber-100 shrink-0">
-              {mode === 'welcome' ? '🎁' : mode === 'signout_confirm' ? '👋' : '🐜'}
+              {mode === 'welcome'
+                ? '🎁'
+                : mode === 'signout_confirm'
+                ? '👋'
+                : mode.startsWith('forgot_password')
+                ? '🔑'
+                : '🐜'}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -420,6 +552,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   {(mode === 'verification_pending' || mode === 'verify') && 'Xác Minh Email Học Sinh'}
                   {mode === 'welcome' && 'Thưởng Chào Mừng! 🎉'}
                   {mode === 'signout_confirm' && 'Thoát Tài Khoản'}
+                  {mode === 'forgot_password_request' && 'Lấy Lại Mật Khẩu'}
+                  {mode === 'forgot_password_verify' && 'Xác Minh Mã OTP'}
+                  {mode === 'forgot_password_reset' && 'Tạo Mật Khẩu Mới'}
                 </h2>
               </div>
               <p className="text-xs text-amber-100 font-medium">
@@ -429,6 +564,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {mode === 'verify' && 'Kiểm tra hộp thư để kích hoạt hồ sơ học tập'}
                 {mode === 'welcome' && 'Chúc mừng bạn đã là cư dân Vương quốc Kiến!'}
                 {mode === 'signout_confirm' && 'Dữ liệu học tập đã lưu an toàn trên hệ thống'}
+                {mode === 'forgot_password_request' && 'Nhập email để nhận mã OTP khôi phục mật khẩu'}
+                {mode === 'forgot_password_verify' && 'Nhập mã 6 chữ số đã gửi về email của bạn'}
+                {mode === 'forgot_password_reset' && 'Thiết lập mật khẩu mạnh để bảo vệ tài khoản'}
               </p>
             </div>
           </div>
@@ -499,9 +637,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                  Mật khẩu
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-stone-700">
+                    Mật khẩu
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      audioService.playClick();
+                      setErrorMessage(null);
+                      setSuccessInfo(null);
+                      setResetEmail(email.trim());
+                      setResetOtp('');
+                      setNewPassword('');
+                      setConfirmNewPassword('');
+                      setMode('forgot_password_request');
+                    }}
+                    className="text-[11px] font-bold text-amber-700 hover:text-amber-800 hover:underline"
+                  >
+                    Quên mật khẩu?
+                  </button>
+                </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                   <input
@@ -555,6 +711,278 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {/* ========================================================================= */}
+          {/* MODE 1.1: QUÊN MẬT KHẨU - BƯỚC 1: NHẬP EMAIL NHẬN MÃ OTP */}
+          {/* ========================================================================= */}
+          {mode === 'forgot_password_request' && (
+            <form onSubmit={handleSendPasswordResetOtp} className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-950 text-xs font-medium flex items-start gap-2.5">
+                <KeyRound className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  Đừng lo lắng! Hãy nhập địa chỉ email bạn đã sử dụng để đăng ký tài khoản. Tổ Kiến sẽ gửi một mã OTP 6 số để bạn xác thực và thiết lập mật khẩu mới.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  Email tài khoản của bạn <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <input
+                    type="email"
+                    required
+                    autoFocus
+                    value={resetEmail || email}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="hocsinh@kienhoc.edu.vn"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-sm font-medium text-stone-900 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-3 rounded-2xl btn-ant-3d-amber font-black text-amber-950 flex items-center justify-center gap-2 shadow-lg hover:brightness-105 active:scale-98 transition-all disabled:opacity-50"
+              >
+                {loading ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <span>Gửi Mã Xác Nhận OTP</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+
+              <div className="pt-3 text-center border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioService.playClick();
+                    setErrorMessage(null);
+                    setSuccessInfo(null);
+                    setMode('signin');
+                  }}
+                  className="text-xs font-bold text-stone-600 hover:text-amber-700 hover:underline"
+                >
+                  ← Quay lại màn hình đăng nhập
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODE 1.2: QUÊN MẬT KHẨU - BƯỚC 2: XÁC MINH MÃ OTP GỬI VỀ EMAIL */}
+          {/* ========================================================================= */}
+          {mode === 'forgot_password_verify' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-300 text-xs text-stone-700 space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-black">
+                  <Mail className="w-4 h-4 text-amber-600" />
+                  <span>Mã OTP đã được gửi đến:</span>
+                </div>
+                <div className="font-mono font-bold text-amber-950 bg-amber-100/90 px-3 py-1.5 rounded-xl break-all text-xs">
+                  {resetEmail || email}
+                </div>
+                <p className="text-[11px] text-stone-500">
+                  Mã OTP có hiệu lực trong vòng 15 phút. Nếu không thấy trong Hộp thư đến, vui lòng kiểm tra mục Thư rác (Spam).
+                </p>
+              </div>
+
+              <form onSubmit={handleVerifyPasswordResetOtp} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5 text-center">
+                    Nhập mã xác nhận OTP 6 số
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    required
+                    autoFocus
+                    value={resetOtp}
+                    onChange={(e) => setResetOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="------"
+                    className="w-full text-center tracking-[0.4em] font-mono text-2xl font-black py-2.5 rounded-2xl border-3 border-amber-300 focus:border-amber-500 focus:ring-4 focus:ring-amber-200 text-stone-900 outline-none transition-all shadow-inner"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || resetOtp.length < 6}
+                  className="w-full py-3.5 rounded-2xl btn-ant-3d-amber font-black text-amber-950 flex items-center justify-center gap-2 shadow-lg hover:brightness-105 active:scale-98 transition-all disabled:opacity-50"
+                >
+                  {loading ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-5 h-5 text-amber-900" />
+                      <span>Xác Minh Mã OTP</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      audioService.playClick();
+                      setErrorMessage(null);
+                      setMode('forgot_password_request');
+                    }}
+                    className="text-stone-500 hover:text-stone-800"
+                  >
+                    ← Đổi email khác
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={resendCooldown > 0 || loading}
+                    onClick={async () => {
+                      audioService.playClick();
+                      setLoading(true);
+                      try {
+                        const res = await authService.sendPasswordResetOtp(resetEmail || email);
+                        setSuccessInfo(res.message);
+                        setResendCooldown(30);
+                      } catch {
+                        setErrorMessage('Không thể gửi lại mã OTP lúc này.');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="text-amber-700 hover:text-amber-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {resendCooldown > 0 ? `Gửi lại (${resendCooldown}s)` : 'Gửi lại mã'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODE 1.3: QUÊN MẬT KHẨU - BƯỚC 3: THIẾT LẬP MẬT KHẨU MỚI (MẬT KHẨU MẠNH) */}
+          {/* ========================================================================= */}
+          {mode === 'forgot_password_reset' && (
+            <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-300 text-amber-950 text-xs">
+                <div className="font-bold flex items-center gap-1.5 mb-1 text-amber-900">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Quy chuẩn mật khẩu mạnh:</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-[11px] text-stone-600 font-medium">
+                  <div className="flex items-center gap-1">
+                    <span className={newPassword.length >= 8 ? 'text-emerald-600 font-bold' : 'text-stone-400'}>
+                      {newPassword.length >= 8 ? '✓' : '○'} Tối thiểu 8 ký tự
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className={/[a-zA-Z]/.test(newPassword) ? 'text-emerald-600 font-bold' : 'text-stone-400'}>
+                      {/[a-zA-Z]/.test(newPassword) ? '✓' : '○'} Có chữ cái
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className={/[0-9]/.test(newPassword) ? 'text-emerald-600 font-bold' : 'text-stone-400'}>
+                      {/[0-9]/.test(newPassword) ? '✓' : '○'} Có chữ số
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className={
+                        confirmNewPassword && newPassword === confirmNewPassword
+                          ? 'text-emerald-600 font-bold'
+                          : 'text-stone-400'
+                      }
+                    >
+                      {confirmNewPassword && newPassword === confirmNewPassword ? '✓' : '○'} Khớp mật khẩu
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  Mật khẩu mới <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    minLength={8}
+                    autoFocus
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Nhập ít nhất 8 ký tự..."
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-sm font-medium text-stone-900 outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1"
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  Xác nhận lại mật khẩu mới <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <input
+                    type={showConfirmNewPassword ? 'text' : 'password'}
+                    required
+                    minLength={8}
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="Nhập lại mật khẩu mới..."
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border-2 border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-sm font-medium text-stone-900 outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1"
+                  >
+                    {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !newPassword || !confirmNewPassword}
+                className="w-full mt-2 py-3 rounded-2xl btn-ant-3d-amber font-black text-amber-950 flex items-center justify-center gap-2 shadow-lg hover:brightness-105 active:scale-98 transition-all disabled:opacity-50"
+              >
+                {loading ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+                    <span>Đặt Lại Mật Khẩu & Đăng Nhập</span>
+                  </>
+                )}
+              </button>
+
+              <div className="pt-2 text-center border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioService.playClick();
+                    setErrorMessage(null);
+                    setMode('signin');
+                  }}
+                  className="text-xs font-bold text-stone-600 hover:text-amber-700 hover:underline"
+                >
+                  ← Hủy bỏ và quay lại đăng nhập
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ========================================================================= */}
           {/* MODE 2: SIGN UP (TẠO TÀI KHOẢN & CHỌN LỚP & ĐẶT MẬT KHẨU) */}
           {/* ========================================================================= */}
           {mode === 'signup' && (
@@ -579,14 +1007,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-stone-700">
-                      Tên đăng nhập (Username)
-                    </label>
-                    <span className="text-[10px] text-stone-400 font-medium">
-                      (Không bắt buộc)
-                    </span>
-                  </div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Tên đăng nhập (Username)
+                  </label>
                   <div className="relative">
                     <input
                       type="text"
@@ -616,7 +1039,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                   {!username.trim() ? null : usernameStatus.checking ? (
                     <div className="text-[11px] text-amber-600 mt-1 flex items-center gap-1 font-medium">
-                      <span>Đang kiểm tra tên đăng nhập trên hệ thống...</span>
+                      <span>Đang kiểm tra...</span>
                     </div>
                   ) : usernameStatus.available ? (
                     <div className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1 font-semibold">
@@ -631,7 +1054,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Biệt danh bạn Kiến
+                    Biệt danh
                   </label>
                   <input
                     type="text"
@@ -644,7 +1067,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Ngày tháng năm sinh <span className="text-rose-500">*</span>
+                    Ngày sinh
                   </label>
                   <div className="relative">
                     <Calendar className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
@@ -661,7 +1084,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Số điện thoại liên hệ
+                    Số điện thoại
                   </label>
                   <div className="relative">
                     <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -692,76 +1115,104 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Chọn Lớp Học Phù Hợp: Radio Button Group for 'Lớp 5' or 'Lớp 8' */}
+              {/* Chọn Khối Lớp Học */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                  Chọn Lớp Học <span className="text-rose-500">*</span>
-                </label>
-
-                <div
-                  role="radiogroup"
-                  aria-label="Chọn Lớp Học: Lớp 5 hoặc Lớp 8"
-                  className="grid grid-cols-2 gap-2.5"
-                >
-                  {/* Radio Option Lớp 5 */}
-                  <label
-                    htmlFor="auth-grade-5-radio"
-                    onClick={() => audioService.playClick()}
-                    className={`p-3 rounded-2xl border-2 text-left cursor-pointer transition-all flex flex-col gap-1 relative select-none ${
-                      selectedGrade === 5
-                        ? 'border-amber-500 bg-amber-50/90 shadow-xs ring-2 ring-amber-200'
-                        : 'border-stone-200 bg-stone-50/60 hover:border-amber-200 hover:bg-stone-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          id="auth-grade-5-radio"
-                          name="gradeSelectionGroup"
-                          value="5"
-                          checked={selectedGrade === 5}
-                          onChange={() => setSelectedGrade(5)}
-                          className="w-4 h-4 text-amber-600 border-stone-300 focus:ring-amber-500 cursor-pointer accent-amber-600"
-                        />
-                        <span className="font-black text-xs text-amber-950">LỚP 5</span>
-                      </div>
-                      <span className="text-base">📐</span>
-                    </div>
-                    <p className="text-[11px] text-stone-600 pl-6 leading-tight">
-                      Toán học, Tiếng Việt, Lịch sử - Địa lí
-                    </p>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-stone-700">
+                    Chọn khối lớp
                   </label>
+                  <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                    Lớp {selectedGrade}
+                  </span>
+                </div>
 
-                  {/* Radio Option Lớp 8 */}
-                  <label
-                    htmlFor="auth-grade-8-radio"
-                    onClick={() => audioService.playClick()}
-                    className={`p-3 rounded-2xl border-2 text-left cursor-pointer transition-all flex flex-col gap-1 relative select-none ${
-                      selectedGrade === 8
-                        ? 'border-blue-500 bg-blue-50/90 shadow-xs ring-2 ring-blue-200'
-                        : 'border-stone-200 bg-stone-50/60 hover:border-blue-200 hover:bg-stone-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          id="auth-grade-8-radio"
-                          name="gradeSelectionGroup"
-                          value="8"
-                          checked={selectedGrade === 8}
-                          onChange={() => setSelectedGrade(8)}
-                          className="w-4 h-4 text-blue-600 border-stone-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
-                        />
-                        <span className="font-black text-xs text-blue-950">LỚP 8</span>
-                      </div>
-                      <span className="text-base">🔬</span>
+                <div className="space-y-2 bg-stone-50/80 p-2.5 rounded-2xl border-2 border-stone-200">
+                  {/* Stage 1: Tiểu học */}
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] font-black text-amber-900 mb-1 px-1">
+                      <span>🎒 TIỂU HỌC (LỚP 1 - 5)</span>
                     </div>
-                    <p className="text-[11px] text-stone-600 pl-6 leading-tight">
-                      KHTN (Lí, Hóa, Sinh), Toán, Tiếng Anh
-                    </p>
-                  </label>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {[1, 2, 3, 4, 5].map((g) => {
+                        const isSelected = selectedGrade === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => {
+                              audioService.playClick();
+                              setSelectedGrade(g as GradeLevel);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center relative ${
+                              isSelected
+                                ? 'bg-amber-400 text-amber-950 border-2 border-amber-500 shadow-xs scale-102 ring-2 ring-amber-300/40'
+                                : 'bg-white hover:bg-amber-50 border border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span>Lớp {g}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Stage 2: THCS */}
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] font-black text-sky-900 mb-1 px-1">
+                      <span>📚 THCS (LỚP 6 - 9)</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[6, 7, 8, 9].map((g) => {
+                        const isSelected = selectedGrade === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => {
+                              audioService.playClick();
+                              setSelectedGrade(g as GradeLevel);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center relative ${
+                              isSelected
+                                ? 'bg-sky-400 text-sky-950 border-2 border-sky-500 shadow-xs scale-102 ring-2 ring-sky-300/40'
+                                : 'bg-white hover:bg-sky-50 border border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span>Lớp {g}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Stage 3: THPT */}
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] font-black text-purple-900 mb-1 px-1">
+                      <span>🎓 THPT (LỚP 10 - 12)</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[10, 11, 12].map((g) => {
+                        const isSelected = selectedGrade === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => {
+                              audioService.playClick();
+                              setSelectedGrade(g as GradeLevel);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-black transition-all flex flex-col items-center relative ${
+                              isSelected
+                                ? 'bg-purple-400 text-purple-950 border-2 border-purple-500 shadow-xs scale-102 ring-2 ring-purple-300/40'
+                                : 'bg-white hover:bg-purple-50 border border-stone-200 text-stone-700'
+                            }`}
+                          >
+                            <span>Lớp {g}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -795,7 +1246,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {/* Email */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Email học sinh / phụ huynh <span className="text-rose-500">*</span>
+                  Email
                 </label>
                 <div className="relative">
                   <Mail className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -813,7 +1264,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {/* Mật khẩu */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Đặt mật khẩu (từ 6 ký tự) <span className="text-rose-500">*</span>
+                  Mật khẩu
                 </label>
                 <div className="relative">
                   <Lock className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -977,9 +1428,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   >
                     ← Đổi email hoặc thông tin khác
                   </button>
-                  <span className="text-[11px] text-stone-400">
-                    Bảo mật với Supabase
-                  </span>
                 </div>
               </form>
             </div>
